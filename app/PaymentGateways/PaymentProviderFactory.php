@@ -2,6 +2,7 @@
 
 namespace App\PaymentGateways;
 
+use App\Models\HLAccount;
 use InvalidArgumentException;
 
 class PaymentProviderFactory
@@ -10,16 +11,17 @@ class PaymentProviderFactory
      * Create a payment provider instance.
      *
      * @param string $provider Provider name (paytr, stripe, iyzico, etc.)
+     * @param HLAccount|null $account Account with provider credentials
      * @return PaymentProviderInterface
      * @throws InvalidArgumentException
      */
-    public static function make(string $provider): PaymentProviderInterface
+    public static function make(string $provider, ?HLAccount $account = null): PaymentProviderInterface
     {
         return match (strtolower($provider)) {
-            'paytr' => new PayTRPaymentProvider(),
+            'paytr' => new PayTRPaymentProvider($account),
             // Future providers can be added here:
-            // 'stripe' => new StripePaymentProvider(),
-            // 'iyzico' => new IyzicoPaymentProvider(),
+            // 'stripe' => new StripePaymentProvider($account),
+            // 'iyzico' => new IyzicoPaymentProvider($account),
             default => throw new InvalidArgumentException("Unsupported payment provider: {$provider}")
         };
     }
@@ -27,13 +29,28 @@ class PaymentProviderFactory
     /**
      * Get the default payment provider.
      *
+     * @param HLAccount|null $account Account with provider credentials
      * @return PaymentProviderInterface
      */
-    public static function default(): PaymentProviderInterface
+    public static function default(?HLAccount $account = null): PaymentProviderInterface
     {
         $defaultProvider = config('services.payment.default_provider', 'paytr');
 
-        return static::make($defaultProvider);
+        return static::make($defaultProvider, $account);
+    }
+
+    /**
+     * Create a provider for a specific account.
+     *
+     * @param HLAccount $account
+     * @param string|null $provider
+     * @return PaymentProviderInterface
+     */
+    public static function forAccount(HLAccount $account, ?string $provider = null): PaymentProviderInterface
+    {
+        $provider = $provider ?? config('services.payment.default_provider', 'paytr');
+        
+        return static::make($provider, $account);
     }
 
     /**

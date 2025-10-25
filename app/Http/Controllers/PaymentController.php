@@ -99,6 +99,11 @@ class PaymentController extends Controller
         $result = $this->paymentService->createPayment($account, $data);
 
         if (!$result['success']) {
+            if ($result['redirect_to_setup'] ?? false) {
+                // Redirect to PayTR setup page
+                return redirect()->route('paytr.setup', ['location_id' => $account->location_id])
+                                ->with('error', $result['error']);
+            }
             abort(400, $result['error']);
         }
 
@@ -205,7 +210,11 @@ class PaymentController extends Controller
         }
 
         try {
-            $provider = PaymentProviderFactory::default();
+            if (!$account->hasPayTRCredentials()) {
+                return response(['error' => 'PayTR not configured for this account'], 400);
+            }
+
+            $provider = PaymentProviderFactory::forAccount($account);
             
             $methods = $provider->listPaymentMethods(
                 $account->location_id,
@@ -251,7 +260,7 @@ class PaymentController extends Controller
                 return response(['error' => 'Payment method not found'], 404);
             }
 
-            $provider = PaymentProviderFactory::make($paymentMethod->provider);
+            $provider = PaymentProviderFactory::forAccount($account, $paymentMethod->provider);
 
             $result = $provider->chargePaymentMethod($paymentMethod, [
                 'amount' => $data['amount'],

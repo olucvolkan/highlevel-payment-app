@@ -125,6 +125,7 @@
             <img src="{{ config('app.url') }}/images/paytr-logo.png" alt="PayTR" onerror="this.style.display='none'">
         </div>
         
+        @if(request()->has('paytr_configured'))
         <div class="features">
             <h3>Your PayTR integration is now active with these features:</h3>
             <ul class="feature-list">
@@ -137,6 +138,21 @@
                 <li>Multi-currency support (TRY, USD, EUR)</li>
             </ul>
         </div>
+        @else
+        <div class="features">
+            <h3>Next Step: Configure PayTR</h3>
+            <p style="color: #7f8c8d; margin-bottom: 20px;">
+                To start accepting payments, you need to configure your PayTR credentials.
+            </p>
+            <a href="{{ route('paytr.setup', ['location_id' => request()->get('location_id', session('location_id'))]) }}" 
+               style="background: #e74c3c; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; margin-bottom: 20px;">
+                Configure PayTR Now
+            </a>
+            <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; text-align: left;">
+                <strong>Important:</strong> You'll need your PayTR merchant credentials (Merchant ID, Key, and Salt) to complete the setup.
+            </div>
+        </div>
+        @endif
         
         <p class="message" style="font-size: 14px; margin-top: 30px;">
             You can now close this window and return to HighLevel to start accepting payments.

@@ -26,7 +26,15 @@ class PaymentService
     public function createPayment(HLAccount $account, array $data): array
     {
         try {
-            $provider = PaymentProviderFactory::make($data['provider'] ?? 'paytr');
+            if (!$account->hasPayTRCredentials()) {
+                return [
+                    'success' => false,
+                    'error' => 'PayTR credentials not configured. Please setup your PayTR account first.',
+                    'redirect_to_setup' => true,
+                ];
+            }
+
+            $provider = PaymentProviderFactory::forAccount($account, $data['provider'] ?? 'paytr');
 
             // Generate unique merchant order ID
             $merchantOid = 'ORDER_' . time() . '_' . rand(1000, 9999);
@@ -199,7 +207,8 @@ class PaymentService
     public function processRefund(Payment $payment, float $amount): array
     {
         try {
-            $provider = PaymentProviderFactory::make($payment->provider);
+            $payment = Payment::with('hlAccount')->find($payment->id);
+            $provider = PaymentProviderFactory::forAccount($payment->hlAccount, $payment->provider);
 
             $result = $provider->refund($payment, $amount);
 

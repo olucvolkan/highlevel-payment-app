@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\OAuthController;
+use App\Http\Controllers\PayTRSetupController;
 
 Route::get('/', function () {
     return response()->json([
@@ -33,6 +34,15 @@ Route::prefix('payments')->group(function () {
     
     // PayTR callback (also accessible via GET for testing)
     Route::match(['GET', 'POST'], '/callback', [PaymentController::class, 'callback'])->name('payments.callback');
+});
+
+// PayTR Setup Routes (for users to configure their PayTR credentials)
+Route::prefix('paytr')->group(function () {
+    Route::get('/setup', [PayTRSetupController::class, 'showSetup'])->name('paytr.setup');
+    Route::post('/credentials', [PayTRSetupController::class, 'saveCredentials'])->name('paytr.save');
+    Route::post('/test', [PayTRSetupController::class, 'testCredentials'])->name('paytr.test');
+    Route::get('/config', [PayTRSetupController::class, 'showConfiguration'])->name('paytr.config');
+    Route::delete('/config', [PayTRSetupController::class, 'removeConfiguration'])->name('paytr.remove');
 });
 
 // Documentation and Admin Routes

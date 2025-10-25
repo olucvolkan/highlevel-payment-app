@@ -4,6 +4,7 @@ namespace App\PaymentGateways;
 
 use App\Models\Payment;
 use App\Models\PaymentMethod;
+use App\Models\HLAccount;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -14,14 +15,26 @@ class PayTRPaymentProvider implements PaymentProviderInterface
     protected string $merchantSalt;
     protected string $apiUrl;
     protected bool $testMode;
+    protected ?HLAccount $account;
 
-    public function __construct()
+    public function __construct(?HLAccount $account = null)
     {
-        $this->merchantId = config('services.paytr.merchant_id');
-        $this->merchantKey = config('services.paytr.merchant_key');
-        $this->merchantSalt = config('services.paytr.merchant_salt');
+        $this->account = $account;
         $this->apiUrl = config('services.paytr.api_url', 'https://www.paytr.com');
-        $this->testMode = config('services.paytr.test_mode', false);
+        
+        if ($account && $account->hasPayTRCredentials()) {
+            $credentials = $account->getPayTRCredentials();
+            $this->merchantId = $credentials['merchant_id'];
+            $this->merchantKey = $credentials['merchant_key'];
+            $this->merchantSalt = $credentials['merchant_salt'];
+            $this->testMode = $credentials['test_mode'];
+        } else {
+            // Fallback to config (for backwards compatibility)
+            $this->merchantId = config('services.paytr.merchant_id', '');
+            $this->merchantKey = config('services.paytr.merchant_key', '');
+            $this->merchantSalt = config('services.paytr.merchant_salt', '');
+            $this->testMode = config('services.paytr.test_mode', true);
+        }
     }
 
     /**
@@ -29,6 +42,12 @@ class PayTRPaymentProvider implements PaymentProviderInterface
      */
     public function initializePayment(array $data): array
     {
+        if (empty($this->merchantId) || empty($this->merchantKey) || empty($this->merchantSalt)) {
+            return [
+                'success' => false,
+                'error' => 'PayTR credentials not configured for this account',
+            ];
+        }
         $merchantOid = $data['merchant_oid'] ?? 'ORDER_' . time() . rand(1000, 9999);
         $userIp = $data['user_ip'] ?? request()->ip();
         $email = $data['email'];
