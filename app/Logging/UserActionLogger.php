@@ -11,19 +11,19 @@ class UserActionLogger
     /**
      * Log user action.
      */
-    public function log(string $action, array $data = []): UserActivityLog
+    public function log(HLAccount $account, string $action, array $data = []): UserActivityLog
     {
         $activityLog = UserActivityLog::create([
-            'hl_account_id' => $data['hl_account_id'] ?? null,
-            'location_id' => $data['location_id'] ?? null,
-            'user_id' => $data['user_id'] ?? null,
+            'hl_account_id' => $account->id,
+            'location_id' => $account->location_id,
+            'user_id' => $account->user_id,
             'action' => $action,
             'entity_type' => $data['entity_type'] ?? null,
             'entity_id' => $data['entity_id'] ?? null,
             'description' => $data['description'] ?? null,
             'ip_address' => request()->ip(),
             'user_agent' => request()->userAgent(),
-            'metadata' => $data['metadata'] ?? null,
+            'metadata' => array_merge($data, ['account_id' => $account->id]),
         ]);
 
         Log::channel('single')->info('User action logged', [

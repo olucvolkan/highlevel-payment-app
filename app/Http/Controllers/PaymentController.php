@@ -328,6 +328,68 @@ class PaymentController extends Controller
     }
 
     /**
+     * Check payment status (used by iframe for polling)
+     */
+    public function status(Request $request): Response
+    {
+        $merchantOid = $request->get('merchantOid');
+        $transactionId = $request->get('transactionId');
+
+        if (!$merchantOid && !$transactionId) {
+            return response(['error' => 'Missing payment identifier'], 400);
+        }
+
+        try {
+            $query = Payment::query();
+            
+            if ($merchantOid) {
+                $query->where('merchant_oid', $merchantOid);
+            } elseif ($transactionId) {
+                $query->where('transaction_id', $transactionId);
+            }
+
+            $payment = $query->first();
+
+            if (!$payment) {
+                return response(['status' => 'not_found'], 404);
+            }
+
+            switch ($payment->status) {
+                case Payment::STATUS_SUCCESS:
+                    return response([
+                        'status' => 'success',
+                        'chargeId' => $payment->charge_id ?: $payment->merchant_oid,
+                        'transactionId' => $payment->transaction_id,
+                        'amount' => $payment->amount,
+                        'currency' => $payment->currency,
+                        'paidAt' => $payment->paid_at?->toIso8601String(),
+                    ]);
+
+                case Payment::STATUS_FAILED:
+                    return response([
+                        'status' => 'failed',
+                        'error' => $payment->error_message ?: 'Payment failed',
+                        'transactionId' => $payment->transaction_id,
+                    ]);
+
+                default:
+                    return response([
+                        'status' => 'pending',
+                        'transactionId' => $payment->transaction_id,
+                    ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('Payment status check failed', [
+                'merchantOid' => $merchantOid,
+                'transactionId' => $transactionId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response(['error' => 'Status check failed'], 500);
+        }
+    }
+
+    /**
      * Get HL account from request authentication
      */
     protected function getAccountFromRequest(Request $request): ?HLAccount

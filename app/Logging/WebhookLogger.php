@@ -10,12 +10,12 @@ class WebhookLogger
     /**
      * Log incoming webhook.
      */
-    public function logIncoming(string $source, string $event, array $payload, int $statusCode = 200): WebhookLog
+    public function logIncoming(string $source, array $payload, string $event = null, int $statusCode = 200): WebhookLog
     {
         $webhookLog = WebhookLog::create([
             'type' => WebhookLog::TYPE_INCOMING,
             'source' => $source,
-            'event' => $event,
+            'event' => $event ?? $source,
             'status' => $statusCode >= 200 && $statusCode < 300 ? WebhookLog::STATUS_SUCCESS : WebhookLog::STATUS_FAILED,
             'payload' => $payload,
             'response_code' => $statusCode,
@@ -25,7 +25,7 @@ class WebhookLogger
         Log::channel('single')->info('Incoming webhook received', [
             'webhook_id' => $webhookLog->id,
             'source' => $source,
-            'event' => $event,
+            'event' => $event ?? $source,
             'payload' => $payload,
             'status_code' => $statusCode,
             'timestamp' => now()->toIso8601String(),

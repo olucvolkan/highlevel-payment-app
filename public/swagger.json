@@ -1,0 +1,981 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "HighLevel PayTR Integration API",
+    "description": "API documentation for HighLevel PayTR payment integration. This API enables Turkish payment processing through PayTR within the HighLevel CRM platform.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "API Support",
+      "email": "support@example.com"
+    },
+    "license": {
+      "name": "MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8000",
+      "description": "Development server"
+    },
+    {
+      "url": "https://api.your-domain.com",
+      "description": "Production server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Health check and status endpoints"
+    },
+    {
+      "name": "Payment",
+      "description": "Payment processing and management"
+    },
+    {
+      "name": "OAuth",
+      "description": "OAuth authentication flow"
+    },
+    {
+      "name": "Webhooks",
+      "description": "Webhook endpoints for callbacks"
+    }
+  ],
+  "paths": {
+    "/api/health": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Health check endpoint",
+        "description": "Returns the health status of the API service",
+        "operationId": "healthCheck",
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "service": {
+                      "type": "string",
+                      "example": "HighLevel PayTR Integration"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "version": {
+                      "type": "string",
+                      "example": "1.0.0"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/status": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Service status endpoint",
+        "description": "Returns detailed status of the service including database and provider connections",
+        "operationId": "serviceStatus",
+        "responses": {
+          "200": {
+            "description": "Service status details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/payments/query": {
+      "post": {
+        "tags": ["Payment"],
+        "summary": "Payment query endpoint",
+        "description": "Main endpoint for all payment operations including verify, list_payment_methods, charge_payment, refund, and create_subscription",
+        "operationId": "paymentQuery",
+        "security": [
+          {
+            "LocationHeader": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/VerifyPaymentRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ListPaymentMethodsRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ChargePaymentRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/RefundRequest"
+                  }
+                ]
+              },
+              "examples": {
+                "verify": {
+                  "summary": "Verify payment",
+                  "value": {
+                    "type": "verify",
+                    "transactionId": "txn_123456789"
+                  }
+                },
+                "list_methods": {
+                  "summary": "List payment methods",
+                  "value": {
+                    "type": "list_payment_methods",
+                    "contactId": "contact_123"
+                  }
+                },
+                "charge": {
+                  "summary": "Charge payment method",
+                  "value": {
+                    "type": "charge_payment",
+                    "paymentMethodId": "pm_123",
+                    "contactId": "contact_123",
+                    "transactionId": "txn_123",
+                    "amount": 100.50,
+                    "currency": "TRY"
+                  }
+                },
+                "refund": {
+                  "summary": "Refund payment",
+                  "value": {
+                    "type": "refund",
+                    "chargeId": "ch_123",
+                    "amount": 50.00
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/VerifyPaymentResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ListPaymentMethodsResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ChargePaymentResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RefundResponse"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/payments/status": {
+      "post": {
+        "tags": ["Payment"],
+        "summary": "Check payment status",
+        "description": "Poll payment status by merchant order ID or transaction ID",
+        "operationId": "paymentStatus",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentStatusRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Payment status retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentStatusResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/payments/page": {
+      "get": {
+        "tags": ["Payment"],
+        "summary": "Payment iframe page",
+        "description": "Returns the payment page with embedded PayTR iframe",
+        "operationId": "paymentPage",
+        "parameters": [
+          {
+            "name": "amount",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "format": "float",
+              "example": 100.50
+            }
+          },
+          {
+            "name": "email",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "email",
+              "example": "customer@example.com"
+            }
+          },
+          {
+            "name": "transactionId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "txn_123456789"
+            }
+          },
+          {
+            "name": "locationId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "loc_123"
+            }
+          },
+          {
+            "name": "currency",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "default": "TRY",
+              "enum": ["TRY", "USD", "EUR"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment page HTML"
+          },
+          "400": {
+            "description": "Invalid parameters"
+          },
+          "401": {
+            "description": "Invalid account"
+          }
+        }
+      }
+    },
+    "/payments/callback": {
+      "post": {
+        "tags": ["Payment"],
+        "summary": "PayTR payment callback",
+        "description": "Handles payment result callbacks from PayTR",
+        "operationId": "paymentCallback",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/PayTRCallback"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Callback processed successfully",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "example": "OK"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Callback processing failed"
+          }
+        }
+      }
+    },
+    "/payments/success": {
+      "get": {
+        "tags": ["Payment"],
+        "summary": "Payment success page",
+        "description": "Redirect page shown after successful payment",
+        "operationId": "paymentSuccess",
+        "parameters": [
+          {
+            "name": "merchant_oid",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success page HTML"
+          }
+        }
+      }
+    },
+    "/payments/error": {
+      "get": {
+        "tags": ["Payment"],
+        "summary": "Payment error page",
+        "description": "Redirect page shown after failed payment",
+        "operationId": "paymentError",
+        "parameters": [
+          {
+            "name": "merchant_oid",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "error",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Error page HTML"
+          }
+        }
+      }
+    },
+    "/oauth/authorize": {
+      "get": {
+        "tags": ["OAuth"],
+        "summary": "Initiate OAuth flow",
+        "description": "Redirects to HighLevel OAuth authorization page",
+        "operationId": "oauthAuthorize",
+        "responses": {
+          "302": {
+            "description": "Redirect to HighLevel OAuth"
+          }
+        }
+      }
+    },
+    "/oauth/callback": {
+      "get": {
+        "tags": ["OAuth"],
+        "summary": "OAuth callback handler",
+        "description": "Handles OAuth callback from HighLevel",
+        "operationId": "oauthCallback",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "location_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to success or error page"
+          }
+        }
+      }
+    },
+    "/oauth/success": {
+      "get": {
+        "tags": ["OAuth"],
+        "summary": "OAuth success page",
+        "description": "Displays successful integration message",
+        "operationId": "oauthSuccess",
+        "responses": {
+          "200": {
+            "description": "Success page HTML"
+          }
+        }
+      }
+    },
+    "/oauth/error": {
+      "get": {
+        "tags": ["OAuth"],
+        "summary": "OAuth error page",
+        "description": "Displays integration error message",
+        "operationId": "oauthError",
+        "responses": {
+          "200": {
+            "description": "Error page HTML"
+          }
+        }
+      }
+    },
+    "/oauth/uninstall": {
+      "post": {
+        "tags": ["OAuth"],
+        "summary": "Handle app uninstall",
+        "description": "Deactivates account when app is uninstalled",
+        "operationId": "oauthUninstall",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["location_id"],
+                "properties": {
+                  "location_id": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Uninstall processed"
+          },
+          "400": {
+            "description": "Missing location_id"
+          }
+        }
+      }
+    },
+    "/api/callbacks/paytr": {
+      "post": {
+        "tags": ["Webhooks"],
+        "summary": "PayTR webhook callback",
+        "description": "Receives payment notifications from PayTR",
+        "operationId": "paytrWebhook",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/PayTRCallback"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Webhook processed",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "example": "OK"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Webhook processing failed"
+          }
+        }
+      }
+    },
+    "/api/webhooks/marketplace": {
+      "post": {
+        "tags": ["Webhooks"],
+        "summary": "HighLevel marketplace webhook",
+        "description": "Handles app install/uninstall events from HighLevel",
+        "operationId": "marketplaceWebhook",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarketplaceWebhook"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Webhook processed",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "example": "OK"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid webhook data"
+          }
+        }
+      }
+    },
+    "/api/webhooks/highlevel": {
+      "post": {
+        "tags": ["Webhooks"],
+        "summary": "HighLevel payment webhook",
+        "description": "Handles payment event notifications from HighLevel",
+        "operationId": "highlevelWebhook",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HighLevelWebhook"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Webhook processed"
+          },
+          "400": {
+            "description": "Invalid webhook data"
+          },
+          "404": {
+            "description": "Account not found"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "LocationHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Location-Id",
+        "description": "HighLevel location ID for authentication"
+      }
+    },
+    "schemas": {
+      "ServiceStatus": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "active"
+          },
+          "providers": {
+            "type": "object",
+            "properties": {
+              "paytr": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "test_mode": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          },
+          "highlevel": {
+            "type": "object",
+            "properties": {
+              "client_configured": {
+                "type": "boolean"
+              }
+            }
+          },
+          "database": {
+            "type": "object",
+            "properties": {
+              "connected": {
+                "type": "boolean"
+              }
+            }
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "VerifyPaymentRequest": {
+        "type": "object",
+        "required": ["type", "transactionId"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["verify"]
+          },
+          "transactionId": {
+            "type": "string"
+          },
+          "chargeId": {
+            "type": "string"
+          }
+        }
+      },
+      "VerifyPaymentResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "failed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ListPaymentMethodsRequest": {
+        "type": "object",
+        "required": ["type", "contactId"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["list_payment_methods"]
+          },
+          "contactId": {
+            "type": "string"
+          },
+          "utoken": {
+            "type": "string"
+          }
+        }
+      },
+      "ListPaymentMethodsResponse": {
+        "type": "object",
+        "properties": {
+          "paymentMethods": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PaymentMethod"
+            }
+          }
+        }
+      },
+      "PaymentMethod": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "example": "card"
+          },
+          "title": {
+            "type": "string",
+            "example": "Visa"
+          },
+          "subTitle": {
+            "type": "string",
+            "example": "**** 4242"
+          },
+          "expiry": {
+            "type": "string",
+            "example": "12/2025"
+          },
+          "imageUrl": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      },
+      "ChargePaymentRequest": {
+        "type": "object",
+        "required": ["type", "paymentMethodId", "contactId", "transactionId", "amount"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["charge_payment"]
+          },
+          "paymentMethodId": {
+            "type": "string"
+          },
+          "contactId": {
+            "type": "string"
+          },
+          "transactionId": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number",
+            "format": "float"
+          },
+          "currency": {
+            "type": "string",
+            "default": "TRY"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          }
+        }
+      },
+      "ChargePaymentResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "chargeId": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          }
+        }
+      },
+      "RefundRequest": {
+        "type": "object",
+        "required": ["type", "chargeId", "amount"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["refund"]
+          },
+          "chargeId": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number",
+            "format": "float"
+          }
+        }
+      },
+      "RefundResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "PaymentStatusRequest": {
+        "type": "object",
+        "properties": {
+          "merchantOid": {
+            "type": "string"
+          },
+          "transactionId": {
+            "type": "string"
+          }
+        }
+      },
+      "PaymentStatusResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["success", "failed", "pending", "not_found"]
+          },
+          "chargeId": {
+            "type": "string"
+          },
+          "transactionId": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "paidAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "error": {
+            "type": "string"
+          }
+        }
+      },
+      "PayTRCallback": {
+        "type": "object",
+        "required": ["merchant_oid", "status", "total_amount", "hash"],
+        "properties": {
+          "merchant_oid": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["success", "failed"]
+          },
+          "total_amount": {
+            "type": "string"
+          },
+          "hash": {
+            "type": "string"
+          },
+          "payment_id": {
+            "type": "string"
+          },
+          "utoken": {
+            "type": "string"
+          },
+          "ctoken": {
+            "type": "string"
+          },
+          "card_type": {
+            "type": "string"
+          },
+          "card_last_four": {
+            "type": "string"
+          },
+          "failed_reason_code": {
+            "type": "string"
+          },
+          "failed_reason_msg": {
+            "type": "string"
+          }
+        }
+      },
+      "MarketplaceWebhook": {
+        "type": "object",
+        "required": ["event", "location_id"],
+        "properties": {
+          "event": {
+            "type": "string",
+            "enum": ["app.install", "app.uninstall", "app.update"]
+          },
+          "location_id": {
+            "type": "string"
+          },
+          "company_id": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": "string"
+          }
+        }
+      },
+      "HighLevelWebhook": {
+        "type": "object",
+        "required": ["event", "location_id"],
+        "properties": {
+          "event": {
+            "type": "string",
+            "enum": ["payment.request", "subscription.request"]
+          },
+          "location_id": {
+            "type": "string"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Bad request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Resource not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "InternalServerError": {
+        "description": "Internal server error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    }
+  }
+}

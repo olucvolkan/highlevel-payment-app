@@ -107,4 +107,18 @@ class PaymentLogger
             'timestamp' => now()->toIso8601String(),
         ]);
     }
+
+    /**
+     * Log payment callback.
+     */
+    public function logCallback(string $provider, array $callbackData): void
+    {
+        Log::channel('single')->info('Payment callback received', [
+            'provider' => $provider,
+            'merchant_oid' => $callbackData['merchant_oid'] ?? null,
+            'status' => $callbackData['status'] ?? null,
+            'callback_data' => $callbackData,
+            'timestamp' => now()->toIso8601String(),
+        ]);
+    }
 }
