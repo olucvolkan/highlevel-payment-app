@@ -1,0 +1,62 @@
+version: '3.9'
+
+services:
+  app:
+    image: php:8.3-fpm
+    container_name: highlevel-paytr-app
+    working_dir: /var/www/html
+    volumes:
+      - ./:/var/www/html
+    networks:
+      - highlevel-network
+    depends_on:
+      - db
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_DATABASE=highlevel_payments
+      - DB_USERNAME=laravel
+      - DB_PASSWORD=secret
+
+  nginx:
+    image: nginx:alpine
+    container_name: highlevel-paytr-nginx
+    ports:
+      - "8000:80"
+    volumes:
+      - ./:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - highlevel-network
+    depends_on:
+      - app
+
+  db:
+    image: postgres:15
+    container_name: highlevel-paytr-db
+    environment:
+      POSTGRES_DB: highlevel_payments
+      POSTGRES_USER: laravel
+      POSTGRES_PASSWORD: secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - highlevel-network
+
+  redis:
+    image: redis:alpine
+    container_name: highlevel-paytr-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - highlevel-network
+
+
+networks:
+  highlevel-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
