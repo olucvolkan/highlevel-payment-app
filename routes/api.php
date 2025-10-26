@@ -55,8 +55,8 @@ Route::get('/status', function () {
         'status' => 'active',
         'providers' => [
             'paytr' => [
-                'enabled' => !empty(config('services.paytr.merchant_id')),
-                'test_mode' => config('services.paytr.test_mode', false),
+                'api_configured' => !empty(config('services.paytr.api_url')),
+                'note' => 'Credentials stored per-location in database',
             ],
         ],
         'highlevel' => [

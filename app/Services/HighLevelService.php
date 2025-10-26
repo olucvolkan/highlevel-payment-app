@@ -197,7 +197,6 @@ class HighLevelService
             $response = Http::withToken($account->access_token)
                 ->post($webhookUrl, array_merge($payload, [
                     'locationId' => $account->location_id,
-                    'apiKey' => config('services.paytr.merchant_key'), // Or custom API key
                 ]));
 
             $webhookLog->sent_at = now();

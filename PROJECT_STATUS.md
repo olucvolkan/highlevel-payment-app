@@ -414,7 +414,8 @@ php artisan test --coverage
 3. **PaymentController Return Types** ✅ - Tüm JSON response'lar düzeltildi
 4. **View Dosyaları** ✅ - Tüm view'ler mevcut (oauth/*, payments/*)
 5. **Third-Party Test Bağımlılıkları** ✅ - 9 test skipped (gerçek API gerekli)
-6. **Test İlerlemesi** ✅ - **%47'den %100'e yükseldi (+53%)**
+6. **Config Cleanup** ✅ - PayTR credentials database-first, config sadece test fallback
+7. **Test İlerlemesi** ✅ - **%47'den %100'e yükseldi (+53%)**
 
 ### 🎉 BAŞARIM: TÜM TESTLER GEÇİYOR!
 **67/67 test başarılı (%100)**

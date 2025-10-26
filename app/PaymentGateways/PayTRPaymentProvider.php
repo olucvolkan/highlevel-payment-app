@@ -29,7 +29,7 @@ class PayTRPaymentProvider implements PaymentProviderInterface
             $this->merchantSalt = $credentials['merchant_salt'];
             $this->testMode = $credentials['test_mode'];
         } else {
-            // Fallback to config (for backwards compatibility)
+            // Fallback to config (for testing only - production should use database)
             $this->merchantId = config('services.paytr.merchant_id', '');
             $this->merchantKey = config('services.paytr.merchant_key', '');
             $this->merchantSalt = config('services.paytr.merchant_salt', '');
