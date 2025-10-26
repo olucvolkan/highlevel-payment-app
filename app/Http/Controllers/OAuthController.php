@@ -85,6 +85,7 @@ class OAuthController extends Controller
                 // PayTR not configured, redirect to setup page
                 return redirect()->route('paytr.setup', ['location_id' => $locationId])
                     ->with('success', 'HighLevel integration completed! Now configure your PayTR credentials to start accepting payments.');
+            }
 
         } catch (\Exception $e) {
             Log::error('OAuth callback processing failed', [

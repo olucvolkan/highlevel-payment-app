@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="Tests\Feature\PayTRSetupControllerTest" file="/Users/volkanoluc/Projects/highlevel-paytr-integration/tests/Feature/PayTRSetupControllerTest.php" tests="1" assertions="1" errors="0" failures="1" skipped="0" time="1.195564">
+    <testcase name="it_validates_required_fields_when_saving_credentials" file="/Users/volkanoluc/Projects/highlevel-paytr-integration/tests/Feature/PayTRSetupControllerTest.php" line="75" class="Tests\Feature\PayTRSetupControllerTest" classname="Tests.Feature.PayTRSetupControllerTest" assertions="1" time="1.195564">
+      <failure type="PHPUnit\Framework\ExpectationFailedException">Tests\Feature\PayTRSetupControllerTest::it_validates_required_fields_when_saving_credentials
+Expected response status code [400] but received 500.
+Failed asserting that 500 is identical to 400.
+
+/Users/volkanoluc/Projects/highlevel-paytr-integration/vendor/laravel/framework/src/Illuminate/Testing/TestResponseAssert.php:45
+/Users/volkanoluc/Projects/highlevel-paytr-integration/vendor/laravel/framework/src/Illuminate/Testing/TestResponse.php:174
+/Users/volkanoluc/Projects/highlevel-paytr-integration/tests/Feature/PayTRSetupControllerTest.php:82</failure>
+    </testcase>
+  </testsuite>
+</testsuites>

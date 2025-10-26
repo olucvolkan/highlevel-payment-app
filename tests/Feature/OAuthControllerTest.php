@@ -54,8 +54,9 @@ class OAuthControllerTest extends TestCase
             'state' => 'test_state',
         ]));
 
-        $response->assertRedirect(route('oauth.success'));
-        $this->assertEquals('Integration successfully installed!', session('success'));
+        // Should redirect to PayTR setup since credentials are not configured
+        $response->assertRedirect(route('paytr.setup', ['location_id' => 'loc_test_123']));
+        $this->assertStringContainsString('HighLevel integration completed', session('success'));
 
         $this->assertDatabaseHas('hl_accounts', [
             'location_id' => 'loc_test_123',
@@ -114,7 +115,8 @@ class OAuthControllerTest extends TestCase
             'location_id' => 'loc_test_123',
         ]));
 
-        $response->assertRedirect(route('oauth.success'));
+        // Should redirect to PayTR setup since credentials are not configured
+        $response->assertRedirect(route('paytr.setup', ['location_id' => 'loc_test_123']));
 
         $this->assertDatabaseHas('hl_accounts', [
             'id' => $existingAccount->id,
@@ -144,8 +146,8 @@ class OAuthControllerTest extends TestCase
             'location_id' => 'loc_test_123',
         ]));
 
-        // Should still succeed even if integration creation fails
-        $response->assertRedirect(route('oauth.success'));
+        // Should still succeed even if integration creation fails, redirect to PayTR setup
+        $response->assertRedirect(route('paytr.setup', ['location_id' => 'loc_test_123']));
 
         $this->assertDatabaseHas('hl_accounts', [
             'location_id' => 'loc_test_123',
@@ -258,15 +260,17 @@ class OAuthControllerTest extends TestCase
         $response = $this->get('/oauth/authorize');
 
         $redirectUrl = $response->headers->get('Location');
+        $decodedUrl = urldecode($redirectUrl);
 
-        $this->assertStringContainsString('payments/orders.readonly', $redirectUrl);
-        $this->assertStringContainsString('payments/orders.write', $redirectUrl);
-        $this->assertStringContainsString('payments/subscriptions.readonly', $redirectUrl);
-        $this->assertStringContainsString('payments/transactions.readonly', $redirectUrl);
-        $this->assertStringContainsString('payments/custom-provider.readonly', $redirectUrl);
-        $this->assertStringContainsString('payments/custom-provider.write', $redirectUrl);
-        $this->assertStringContainsString('products.readonly', $redirectUrl);
-        $this->assertStringContainsString('products/prices.readonly', $redirectUrl);
+        // Check in decoded URL since scopes are URL encoded
+        $this->assertStringContainsString('payments/orders.readonly', $decodedUrl);
+        $this->assertStringContainsString('payments/orders.write', $decodedUrl);
+        $this->assertStringContainsString('payments/subscriptions.readonly', $decodedUrl);
+        $this->assertStringContainsString('payments/transactions.readonly', $decodedUrl);
+        $this->assertStringContainsString('payments/custom-provider.readonly', $decodedUrl);
+        $this->assertStringContainsString('payments/custom-provider.write', $decodedUrl);
+        $this->assertStringContainsString('products.readonly', $decodedUrl);
+        $this->assertStringContainsString('products/prices.readonly', $decodedUrl);
     }
 
     /** @test */

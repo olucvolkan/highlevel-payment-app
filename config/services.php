@@ -36,11 +36,9 @@ return [
     ],
 
     'paytr' => [
-        'merchant_id' => env('PAYTR_MERCHANT_ID'),
-        'merchant_key' => env('PAYTR_MERCHANT_KEY'),
-        'merchant_salt' => env('PAYTR_MERCHANT_SALT'),
+        // PayTR credentials are stored in database per location (hl_accounts table)
+        // Only keep the base API URL here
         'api_url' => env('PAYTR_API_URL', 'https://www.paytr.com'),
-        'test_mode' => env('PAYTR_TEST_MODE', true),
     ],
 
     'highlevel' => [

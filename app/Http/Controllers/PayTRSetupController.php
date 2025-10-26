@@ -6,6 +6,7 @@ use App\Models\HLAccount;
 use App\Logging\UserActionLogger;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -44,7 +45,7 @@ class PayTRSetupController extends Controller
     /**
      * Save PayTR credentials
      */
-    public function saveCredentials(Request $request): Response
+    public function saveCredentials(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
             'location_id' => 'required|string',
@@ -120,7 +121,7 @@ class PayTRSetupController extends Controller
     /**
      * Test PayTR credentials by making a test API call
      */
-    public function testCredentials(Request $request): Response
+    public function testCredentials(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
             'merchant_id' => 'required|string',
@@ -149,7 +150,7 @@ class PayTRSetupController extends Controller
     /**
      * Show current PayTR configuration
      */
-    public function showConfiguration(Request $request): Response
+    public function showConfiguration(Request $request): JsonResponse
     {
         $locationId = $request->get('location_id');
         
@@ -181,7 +182,7 @@ class PayTRSetupController extends Controller
     /**
      * Remove PayTR configuration
      */
-    public function removeConfiguration(Request $request): Response
+    public function removeConfiguration(Request $request): JsonResponse
     {
         $locationId = $request->get('location_id');
         

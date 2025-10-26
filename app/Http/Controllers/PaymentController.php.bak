@@ -248,7 +248,7 @@ class PaymentController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['error' => 'Invalid parameters'], 400);
+            return response(['error' => 'Invalid parameters'], 400);
         }
 
         try {
@@ -258,7 +258,7 @@ class PaymentController extends Controller
                 ->first();
 
             if (!$paymentMethod) {
-                return response()->json(['error' => 'Payment method not found'], 404);
+                return response(['error' => 'Payment method not found'], 404);
             }
 
             $provider = PaymentProviderFactory::forAccount($account, $paymentMethod->provider);
@@ -272,10 +272,10 @@ class PaymentController extends Controller
             ]);
 
             if ($result['success']) {
-                return response()->json(['success' => true, 'chargeId' => $result['charge_id'] ?? null]);
+                return response(['success' => true, 'chargeId' => $result['charge_id'] ?? null]);
             }
 
-            return response()->json(['error' => $result['error'] ?? 'Charge failed'], 400);
+            return response(['error' => $result['error'] ?? 'Charge failed'], 400);
         } catch (\Exception $e) {
             Log::error('Charge payment failed', [
                 'account_id' => $account->id,
@@ -283,23 +283,23 @@ class PaymentController extends Controller
                 'error' => $e->getMessage(),
             ]);
 
-            return response()->json(['error' => 'Charge processing failed'], 500);
+            return response(['error' => 'Charge processing failed'], 500);
         }
     }
 
     /**
      * Handle create subscription operation
      */
-    protected function handleCreateSubscription(HLAccount $account, array $data): JsonResponse
+    protected function handleCreateSubscription(HLAccount $account, array $data): Response
     {
         // For now, return not implemented
-        return response()->json(['error' => 'Subscriptions not yet implemented'], 501);
+        return response(['error' => 'Subscriptions not yet implemented'], 501);
     }
 
     /**
      * Handle refund operation
      */
-    protected function handleRefund(HLAccount $account, array $data): JsonResponse
+    protected function handleRefund(HLAccount $account, array $data): Response
     {
         $validator = Validator::make($data, [
             'chargeId' => 'required|string',
@@ -307,7 +307,7 @@ class PaymentController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['error' => 'Invalid parameters'], 400);
+            return response(['error' => 'Invalid parameters'], 400);
         }
 
         try {
@@ -316,16 +316,16 @@ class PaymentController extends Controller
                 ->first();
 
             if (!$payment) {
-                return response()->json(['error' => 'Payment not found'], 404);
+                return response(['error' => 'Payment not found'], 404);
             }
 
             $result = $this->paymentService->processRefund($payment, $data['amount']);
 
             if ($result['success']) {
-                return response()->json(['success' => true]);
+                return response(['success' => true]);
             }
 
-            return response()->json(['error' => $result['message']], 400);
+            return response(['error' => $result['message']], 400);
         } catch (\Exception $e) {
             Log::error('Refund failed', [
                 'account_id' => $account->id,
@@ -333,7 +333,7 @@ class PaymentController extends Controller
                 'error' => $e->getMessage(),
             ]);
 
-            return response()->json(['error' => 'Refund processing failed'], 500);
+            return response(['error' => 'Refund processing failed'], 500);
         }
     }
 
@@ -346,7 +346,7 @@ class PaymentController extends Controller
         $transactionId = $request->get('transactionId');
 
         if (!$merchantOid && !$transactionId) {
-            return response()->json(['error' => 'Missing payment identifier'], 400);
+            return response(['error' => 'Missing payment identifier'], 400);
         }
 
         try {
@@ -361,12 +361,12 @@ class PaymentController extends Controller
             $payment = $query->first();
 
             if (!$payment) {
-                return response()->json(['status' => 'not_found'], 404);
+                return response(['status' => 'not_found'], 404);
             }
 
             switch ($payment->status) {
                 case Payment::STATUS_SUCCESS:
-                    return response()->json([
+                    return response([
                         'status' => 'success',
                         'chargeId' => $payment->charge_id ?: $payment->merchant_oid,
                         'transactionId' => $payment->transaction_id,
@@ -376,14 +376,14 @@ class PaymentController extends Controller
                     ]);
 
                 case Payment::STATUS_FAILED:
-                    return response()->json([
+                    return response([
                         'status' => 'failed',
                         'error' => $payment->error_message ?: 'Payment failed',
                         'transactionId' => $payment->transaction_id,
                     ]);
 
                 default:
-                    return response()->json([
+                    return response([
                         'status' => 'pending',
                         'transactionId' => $payment->transaction_id,
                     ]);
@@ -395,7 +395,7 @@ class PaymentController extends Controller
                 'error' => $e->getMessage(),
             ]);
 
-            return response()->json(['error' => 'Status check failed'], 500);
+            return response(['error' => 'Status check failed'], 500);
         }
     }
 

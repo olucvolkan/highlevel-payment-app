@@ -299,7 +299,7 @@ class PaymentController extends Controller
     /**
      * Handle refund operation
      */
-    protected function handleRefund(HLAccount $account, array $data): JsonResponse
+    protected function handleRefund(HLAccount $account, array $data): Response
     {
         $validator = Validator::make($data, [
             'chargeId' => 'required|string',

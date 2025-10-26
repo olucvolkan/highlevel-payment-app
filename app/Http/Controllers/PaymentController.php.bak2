@@ -290,7 +290,7 @@ class PaymentController extends Controller
     /**
      * Handle create subscription operation
      */
-    protected function handleCreateSubscription(HLAccount $account, array $data): JsonResponse
+    protected function handleCreateSubscription(HLAccount $account, array $data): Response
     {
         // For now, return not implemented
         return response()->json(['error' => 'Subscriptions not yet implemented'], 501);
@@ -299,7 +299,7 @@ class PaymentController extends Controller
     /**
      * Handle refund operation
      */
-    protected function handleRefund(HLAccount $account, array $data): JsonResponse
+    protected function handleRefund(HLAccount $account, array $data): Response
     {
         $validator = Validator::make($data, [
             'chargeId' => 'required|string',

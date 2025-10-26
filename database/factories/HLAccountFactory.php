@@ -35,7 +35,6 @@ class HLAccountFactory extends Factory
             'integration_id' => 'int_' . Str::random(20),
             'config_id' => 'cfg_' . Str::random(20),
             'is_active' => true,
-            'installed_at' => now(),
         ];
     }
 
@@ -46,7 +45,6 @@ class HLAccountFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'is_active' => false,
-            'uninstalled_at' => now(),
         ]);
     }
 
