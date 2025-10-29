@@ -4,15 +4,10 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\OAuthController;
 use App\Http\Controllers\PayTRSetupController;
+use App\Http\Controllers\LandingPageController;
 
-Route::get('/', function () {
-    return response()->json([
-        'service' => 'HighLevel PayTR Integration',
-        'status' => 'active',
-        'version' => '1.0.0',
-        'docs' => config('app.url') . '/docs',
-    ]);
-});
+// Landing Page
+Route::get('/', [LandingPageController::class, 'index'])->name('landing');
 
 // OAuth Routes
 Route::prefix('oauth')->group(function () {
