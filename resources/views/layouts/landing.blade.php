@@ -6,8 +6,14 @@
     <meta name="description" content="PayTR ve iyzico destekli HighLevel yerel ödeme entegrasyonu. Türkiye'ye özel güvenli, hızlı ve şeffaf ödeme çözümü.">
     <title>PayTR HighLevel Integration - Yerel Ödeme Sistemi</title>
 
+    <!-- CSRF Token -->
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Alpine.js CDN -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
     <!-- Google Fonts - Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">

@@ -2,15 +2,44 @@
 
 namespace App\Services;
 
+use App\Models\HLAccount;
+
 class PayTRHashService
 {
     protected string $merchantKey;
     protected string $merchantSalt;
 
-    public function __construct()
+    /**
+     * Private constructor to enforce static factory methods.
+     */
+    private function __construct(string $merchantKey, string $merchantSalt)
     {
-        $this->merchantKey = config('services.paytr.merchant_key');
-        $this->merchantSalt = config('services.paytr.merchant_salt');
+        $this->merchantKey = $merchantKey;
+        $this->merchantSalt = $merchantSalt;
+    }
+
+    /**
+     * Create instance from HLAccount (location-specific credentials).
+     */
+    public static function forAccount(HLAccount $account): self
+    {
+        $credentials = $account->getPayTRCredentials();
+
+        return new self(
+            $credentials['merchant_key'],
+            $credentials['merchant_salt']
+        );
+    }
+
+    /**
+     * Create instance from config (for testing purposes).
+     */
+    public static function forConfig(): self
+    {
+        return new self(
+            config('services.paytr.merchant_key'),
+            config('services.paytr.merchant_salt')
+        );
     }
 
     /**

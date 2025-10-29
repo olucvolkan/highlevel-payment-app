@@ -15,7 +15,6 @@ class PaymentService
 {
     public function __construct(
         protected HighLevelService $highLevelService,
-        protected PayTRHashService $hashService,
         protected PaymentLogger $paymentLogger
     ) {
     }
@@ -125,16 +124,22 @@ class PaymentService
     public function processCallback(array $callbackData): bool
     {
         try {
-            // Validate callback hash
-            if (!$this->hashService->validateCallback($callbackData)) {
-                Log::error('Invalid PayTR callback hash', ['data' => $callbackData]);
-                return false;
-            }
-
-            $payment = Payment::where('merchant_oid', $callbackData['merchant_oid'])->first();
+            // Find payment first to get account-specific credentials
+            $payment = Payment::with('hlAccount')
+                ->where('merchant_oid', $callbackData['merchant_oid'])
+                ->first();
 
             if (!$payment) {
                 Log::error('Payment not found for callback', ['merchant_oid' => $callbackData['merchant_oid']]);
+                return false;
+            }
+
+            // Create account-specific hash service
+            $hashService = PayTRHashService::forAccount($payment->hlAccount);
+
+            // Validate callback hash
+            if (!$hashService->validateCallback($callbackData)) {
+                Log::error('Invalid PayTR callback hash', ['data' => $callbackData]);
                 return false;
             }
 

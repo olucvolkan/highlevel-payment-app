@@ -65,7 +65,12 @@ class WebhookControllerTest extends TestCase
     /** @test */
     public function it_processes_failed_paytr_callback()
     {
-        $account = HLAccount::factory()->create();
+        $account = HLAccount::factory()->create([
+            'paytr_merchant_id' => 'test_merchant',
+            'paytr_merchant_key' => encrypt(config('services.paytr.merchant_key')),
+            'paytr_merchant_salt' => encrypt(config('services.paytr.merchant_salt')),
+            'paytr_configured' => true,
+        ]);
         $payment = Payment::factory()->create([
             'hl_account_id' => $account->id,
             'merchant_oid' => 'ORDER_12345',
