@@ -1,0 +1,588 @@
+{
+  "info": {
+    "name": "HighLevel PayTR Integration - Step by Step",
+    "description": "Complete step-by-step testing collection for PayTR-HighLevel integration",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "BASE_URL",
+      "value": "https://your-ngrok-url.ngrok.io",
+      "type": "string"
+    },
+    {
+      "key": "LOCATION_ID",
+      "value": "test_loc_12345",
+      "type": "string"
+    },
+    {
+      "key": "TRANSACTION_ID",
+      "value": "txn_test_001",
+      "type": "string"
+    },
+    {
+      "key": "MERCHANT_OID",
+      "value": "ORDER_1698765432_1234",
+      "type": "string"
+    },
+    {
+      "key": "CHARGE_ID",
+      "value": "chrg_xxx",
+      "type": "string"
+    },
+    {
+      "key": "CONTACT_ID",
+      "value": "cont_test_999",
+      "type": "string"
+    },
+    {
+      "key": "CSRF_TOKEN",
+      "value": "your-csrf-token-here",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "STEP 5: Create Payment (Payment Page)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Location-Id",
+            "value": "{{LOCATION_ID}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/x-www-form-urlencoded"
+          }
+        ],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            {
+              "key": "amount",
+              "value": "100.00",
+              "description": "Payment amount (e.g., 100.00 TL)"
+            },
+            {
+              "key": "email",
+              "value": "customer@example.com",
+              "description": "Customer email address"
+            },
+            {
+              "key": "transactionId",
+              "value": "{{TRANSACTION_ID}}",
+              "description": "Unique transaction ID from HighLevel"
+            },
+            {
+              "key": "locationId",
+              "value": "{{LOCATION_ID}}",
+              "description": "HighLevel location ID"
+            },
+            {
+              "key": "contactId",
+              "value": "{{CONTACT_ID}}",
+              "description": "HighLevel contact ID (optional)"
+            },
+            {
+              "key": "user_name",
+              "value": "Test Customer",
+              "description": "Customer full name"
+            },
+            {
+              "key": "user_phone",
+              "value": "5551234567",
+              "description": "Customer phone number"
+            },
+            {
+              "key": "user_address",
+              "value": "Istanbul, Turkey",
+              "description": "Customer address"
+            },
+            {
+              "key": "installment_count",
+              "value": "0",
+              "description": "Number of installments (0 for one-time payment)"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/payments/page",
+          "host": ["{{BASE_URL}}"],
+          "path": ["payments", "page"]
+        },
+        "description": "Initialize a payment and get PayTR iframe URL. This endpoint creates a payment record and returns an HTML page with the PayTR payment iframe.\n\nRequired parameters:\n- amount: Payment amount (float)\n- email: Customer email\n- transactionId: Unique transaction ID\n- locationId: HighLevel location ID\n\nOptional parameters:\n- contactId: HighLevel contact ID\n- orderId: HighLevel order ID\n- subscriptionId: HighLevel subscription ID\n- user_name: Customer name\n- user_phone: Customer phone\n- user_address: Customer address\n- installment_count: Number of installments\n- items: Array of product items\n- metadata: Additional metadata\n- utoken: User token for saved cards\n- store_card: Save card (1 or 0)"
+      },
+      "response": []
+    },
+    {
+      "name": "STEP 5b: Create Payment (Complete Example)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Location-Id",
+            "value": "{{LOCATION_ID}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/x-www-form-urlencoded"
+          }
+        ],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            {
+              "key": "amount",
+              "value": "250.50"
+            },
+            {
+              "key": "email",
+              "value": "volkanoluc@gmail.com"
+            },
+            {
+              "key": "transactionId",
+              "value": "TXN_20241115_001"
+            },
+            {
+              "key": "locationId",
+              "value": "{{LOCATION_ID}}"
+            },
+            {
+              "key": "contactId",
+              "value": "{{CONTACT_ID}}"
+            },
+            {
+              "key": "orderId",
+              "value": "ORDER_789012"
+            },
+            {
+              "key": "subscriptionId",
+              "value": "SUB_345678"
+            },
+            {
+              "key": "mode",
+              "value": "payment"
+            },
+            {
+              "key": "user_name",
+              "value": "Volkan Oluç"
+            },
+            {
+              "key": "user_phone",
+              "value": "5551234567"
+            },
+            {
+              "key": "user_address",
+              "value": "Istanbul, Turkey"
+            },
+            {
+              "key": "installment_count",
+              "value": "0"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/payments/page",
+          "host": ["{{BASE_URL}}"],
+          "path": ["payments", "page"]
+        },
+        "description": "Complete payment request with all optional parameters"
+      },
+      "response": []
+    },
+    {
+      "name": "STEP 5c: Create Payment with Saved Card",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Location-Id",
+            "value": "{{LOCATION_ID}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/x-www-form-urlencoded"
+          }
+        ],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            {
+              "key": "amount",
+              "value": "99.99"
+            },
+            {
+              "key": "email",
+              "value": "customer@example.com"
+            },
+            {
+              "key": "transactionId",
+              "value": "TXN_SAVED_CARD_001"
+            },
+            {
+              "key": "locationId",
+              "value": "{{LOCATION_ID}}"
+            },
+            {
+              "key": "contactId",
+              "value": "{{CONTACT_ID}}"
+            },
+            {
+              "key": "utoken",
+              "value": "previous_utoken_value"
+            },
+            {
+              "key": "store_card",
+              "value": "1"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/payments/page",
+          "host": ["{{BASE_URL}}"],
+          "path": ["payments", "page"]
+        },
+        "description": "Create payment using a saved card (utoken)"
+      },
+      "response": []
+    },
+    {
+      "name": "STEP 3: Test PayTR Credentials",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-CSRF-TOKEN",
+            "value": "{{CSRF_TOKEN}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"merchant_id\": \"test_merchant_123\",\n  \"merchant_key\": \"test_key_abcdef123456\",\n  \"merchant_salt\": \"test_salt_xyz789\",\n  \"test_mode\": true,\n  \"location_id\": \"{{LOCATION_ID}}\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/paytr/test",
+          "host": ["{{BASE_URL}}"],
+          "path": ["paytr", "test"]
+        },
+        "description": "Test PayTR credentials before saving"
+      },
+      "response": []
+    },
+    {
+      "name": "STEP 4: Save PayTR Credentials",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-CSRF-TOKEN",
+            "value": "{{CSRF_TOKEN}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"merchant_id\": \"test_merchant_123\",\n  \"merchant_key\": \"test_key_abcdef123456\",\n  \"merchant_salt\": \"test_salt_xyz789\",\n  \"test_mode\": true,\n  \"location_id\": \"{{LOCATION_ID}}\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/paytr/credentials",
+          "host": ["{{BASE_URL}}"],
+          "path": ["paytr", "credentials"]
+        },
+        "description": "Save PayTR credentials to database (encrypted)"
+      },
+      "response": []
+    },
+    {
+      "name": "Get PayTR Configuration",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-CSRF-TOKEN",
+            "value": "{{CSRF_TOKEN}}"
+          }
+        ],
+        "url": {
+          "raw": "{{BASE_URL}}/paytr/config?location_id={{LOCATION_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["paytr", "config"],
+          "query": [
+            {
+              "key": "location_id",
+              "value": "{{LOCATION_ID}}"
+            }
+          ]
+        },
+        "description": "Get current PayTR configuration for a location"
+      },
+      "response": []
+    },
+    {
+      "name": "STEP 6: Simulate PayTR Callback (Success)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"merchant_oid\": \"{{MERCHANT_OID}}\",\n  \"status\": \"success\",\n  \"total_amount\": \"10000\",\n  \"payment_id\": \"paytr_payment_123456\",\n  \"hash\": \"CALCULATE_THIS_HASH\",\n  \"payment_type\": \"card\",\n  \"installment_count\": \"0\",\n  \"currency\": \"TRY\",\n  \"test_mode\": \"1\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/callbacks/paytr",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "callbacks", "paytr"]
+        },
+        "description": "Simulate successful PayTR payment callback\n\n⚠️ IMPORTANT: Calculate hash using:\nphp artisan tinker\n$account = \\App\\Models\\HLAccount::where('location_id', 'test_loc_12345')->first();\n$creds = $account->getPayTRCredentials();\n$hash = base64_encode(hash_hmac('sha256', 'ORDER_xxx' . $creds['merchant_salt'] . 'success' . '10000', $creds['merchant_key'], true));\necho $hash;"
+      },
+      "response": []
+    },
+    {
+      "name": "STEP 6: Simulate PayTR Callback (Failed)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"merchant_oid\": \"{{MERCHANT_OID}}\",\n  \"status\": \"failed\",\n  \"total_amount\": \"10000\",\n  \"hash\": \"CALCULATE_THIS_HASH\",\n  \"failed_reason_code\": \"declined\",\n  \"failed_reason_msg\": \"Card declined by bank\",\n  \"payment_type\": \"card\",\n  \"currency\": \"TRY\",\n  \"test_mode\": \"1\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/callbacks/paytr",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "callbacks", "paytr"]
+        },
+        "description": "Simulate failed PayTR payment callback"
+      },
+      "response": []
+    },
+    {
+      "name": "STEP 7: Payment Query - Verify",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"verify\",\n  \"locationId\": \"{{LOCATION_ID}}\",\n  \"transactionId\": \"{{TRANSACTION_ID}}\",\n  \"chargeId\": \"{{CHARGE_ID}}\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/payments/query",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "payments", "query"]
+        },
+        "description": "Verify payment status via HighLevel query endpoint"
+      },
+      "response": []
+    },
+    {
+      "name": "STEP 7: Payment Query - List Payment Methods",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"list_payment_methods\",\n  \"locationId\": \"{{LOCATION_ID}}\",\n  \"contactId\": \"{{CONTACT_ID}}\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/payments/query",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "payments", "query"]
+        },
+        "description": "List saved payment methods for a contact"
+      },
+      "response": []
+    },
+    {
+      "name": "Payment Query - Charge Payment Method",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"charge_payment\",\n  \"locationId\": \"{{LOCATION_ID}}\",\n  \"contactId\": \"{{CONTACT_ID}}\",\n  \"paymentMethodId\": \"pm_xxx\",\n  \"amount\": 5000,\n  \"currency\": \"TRY\",\n  \"transactionId\": \"txn_charge_001\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/payments/query",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "payments", "query"]
+        },
+        "description": "Charge a saved payment method"
+      },
+      "response": []
+    },
+    {
+      "name": "STEP 7: Payment Query - Refund",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"refund\",\n  \"locationId\": \"{{LOCATION_ID}}\",\n  \"chargeId\": \"{{CHARGE_ID}}\",\n  \"amount\": 5000\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/payments/query",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "payments", "query"]
+        },
+        "description": "Process a refund for a successful payment"
+      },
+      "response": []
+    },
+    {
+      "name": "Payment Query - Create Subscription",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"create_subscription\",\n  \"locationId\": \"{{LOCATION_ID}}\",\n  \"contactId\": \"{{CONTACT_ID}}\",\n  \"amount\": 9900,\n  \"currency\": \"TRY\",\n  \"interval\": \"monthly\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/payments/query",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "payments", "query"]
+        },
+        "description": "Create a subscription (currently returns 501 - not implemented)"
+      },
+      "response": []
+    },
+    {
+      "name": "STEP 8: Payment Status Polling",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"merchantOid\": \"{{MERCHANT_OID}}\",\n  \"transactionId\": \"{{TRANSACTION_ID}}\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/payments/status",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "payments", "status"]
+        },
+        "description": "Check payment status (used by frontend polling)"
+      },
+      "response": []
+    },
+    {
+      "name": "HighLevel Webhook - App Install",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"app.install\",\n  \"locationId\": \"{{LOCATION_ID}}\",\n  \"companyId\": \"test_company_67890\",\n  \"userId\": \"test_user_11111\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/webhooks/marketplace",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "webhooks", "marketplace"]
+        },
+        "description": "Simulate HighLevel app installation webhook"
+      },
+      "response": []
+    },
+    {
+      "name": "HighLevel Webhook - App Uninstall",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"app.uninstall\",\n  \"locationId\": \"{{LOCATION_ID}}\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/webhooks/marketplace",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "webhooks", "marketplace"]
+        },
+        "description": "Simulate HighLevel app uninstallation webhook"
+      },
+      "response": []
+    },
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/health",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "health"]
+        },
+        "description": "Check if API is healthy"
+      },
+      "response": []
+    },
+    {
+      "name": "System Status",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/status",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "status"]
+        },
+        "description": "Get system status and version info"
+      },
+      "response": []
+    }
+  ]
+}

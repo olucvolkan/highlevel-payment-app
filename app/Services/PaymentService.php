@@ -36,7 +36,7 @@ class PaymentService
             $provider = PaymentProviderFactory::forAccount($account, $data['provider'] ?? 'paytr');
 
             // Generate unique merchant order ID
-            $merchantOid = 'ORDER_' . time() . '_' . rand(1000, 9999);
+            $merchantOid = 'ORDER' . time() . rand(1000, 9999);
 
             // Create payment record
             $payment = Payment::create([

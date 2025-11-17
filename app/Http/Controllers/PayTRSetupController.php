@@ -24,13 +24,13 @@ class PayTRSetupController extends Controller
     public function showSetup(Request $request): \Illuminate\View\View
     {
         $locationId = $request->get('location_id');
-        
+
         if (!$locationId) {
             abort(400, 'Missing location_id parameter');
         }
 
         $account = HLAccount::where('location_id', $locationId)->first();
-        
+
         if (!$account) {
             abort(404, 'Account not found');
         }
@@ -55,6 +55,7 @@ class PayTRSetupController extends Controller
             'test_mode' => 'boolean',
         ]);
 
+
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
@@ -62,9 +63,10 @@ class PayTRSetupController extends Controller
             ], 400);
         }
 
+
         try {
             $account = HLAccount::where('location_id', $request->location_id)->first();
-            
+
             if (!$account) {
                 return response()->json([
                     'success' => false,
@@ -72,20 +74,20 @@ class PayTRSetupController extends Controller
                 ], 404);
             }
 
-            // Test PayTR credentials before saving
-            $testResult = $this->testPayTRCredentials([
-                'merchant_id' => $request->merchant_id,
-                'merchant_key' => $request->merchant_key,
-                'merchant_salt' => $request->merchant_salt,
-                'test_mode' => $request->boolean('test_mode', true),
-            ]);
-
-            if (!$testResult['success']) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'PayTR credentials test failed: ' . $testResult['error'],
-                ], 400);
-            }
+//            // Test PayTR credentials before saving
+//            $testResult = $this->testPayTRCredentials([
+//                'merchant_id' => $request->merchant_id,
+//                'merchant_key' => $request->merchant_key,
+//                'merchant_salt' => $request->merchant_salt,
+//                'test_mode' => $request->boolean('test_mode', true),
+//            ]);
+//
+//            if (!$testResult['success']) {
+//                return response()->json([
+//                    'success' => false,
+//                    'message' => 'PayTR credentials test failed: ' . $testResult['error'],
+//                ], 400);
+//            }
 
             // Save credentials
             $account->setPayTRCredentials([
@@ -153,7 +155,7 @@ class PayTRSetupController extends Controller
     public function showConfiguration(Request $request): JsonResponse
     {
         $locationId = $request->get('location_id');
-        
+
         if (!$locationId) {
             return response()->json([
                 'success' => false,
@@ -162,7 +164,7 @@ class PayTRSetupController extends Controller
         }
 
         $account = HLAccount::where('location_id', $locationId)->first();
-        
+
         if (!$account) {
             return response()->json([
                 'success' => false,
@@ -185,7 +187,7 @@ class PayTRSetupController extends Controller
     public function removeConfiguration(Request $request): JsonResponse
     {
         $locationId = $request->get('location_id');
-        
+
         if (!$locationId) {
             return response()->json([
                 'success' => false,
@@ -195,7 +197,7 @@ class PayTRSetupController extends Controller
 
         try {
             $account = HLAccount::where('location_id', $locationId)->first();
-            
+
             if (!$account) {
                 return response()->json([
                     'success' => false,
@@ -255,12 +257,11 @@ class PayTRSetupController extends Controller
             $currency = 'TL';
 
             // Generate hash
-            $hashStr = $merchantId . $userIp . $merchantOid . $email . 
-                      $paymentAmount . $userBasket . $noInstallment . 
+            $hashStr = $merchantId . $userIp . $merchantOid . $email .
+                      $paymentAmount . $userBasket . $noInstallment .
                       $maxInstallment . $currency . $testMode . $merchantSalt;
-            
-            $paytrToken = base64_encode(hash_hmac('sha256', $hashStr, $merchantKey, true));
 
+            $paytrToken = base64_encode(hash_hmac('sha256', $hashStr, $merchantKey, true));
             // Test request to PayTR
             $response = Http::timeout(10)->post('https://www.paytr.com/odeme/api/get-token', [
                 'merchant_id' => $merchantId,
@@ -283,6 +284,7 @@ class PayTRSetupController extends Controller
                 'test_mode' => $testMode,
             ]);
 
+            dd($response->json());
             if (!$response->successful()) {
                 return [
                     'success' => false,

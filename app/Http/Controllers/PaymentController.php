@@ -78,7 +78,7 @@ class PaymentController extends Controller
     public function paymentPage(Request $request): \Illuminate\View\View
     {
         $account = $this->getAccountFromRequest($request);
-        
+
         if (!$account) {
             abort(401, 'Invalid account');
         }
@@ -351,7 +351,7 @@ class PaymentController extends Controller
 
         try {
             $query = Payment::query();
-            
+
             if ($merchantOid) {
                 $query->where('merchant_oid', $merchantOid);
             } elseif ($transactionId) {

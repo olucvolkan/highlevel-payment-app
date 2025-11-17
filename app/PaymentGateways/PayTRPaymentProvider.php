@@ -21,7 +21,7 @@ class PayTRPaymentProvider implements PaymentProviderInterface
     {
         $this->account = $account;
         $this->apiUrl = config('services.paytr.api_url', 'https://www.paytr.com');
-        
+
         if ($account && $account->hasPayTRCredentials()) {
             $credentials = $account->getPayTRCredentials();
             $this->merchantId = $credentials['merchant_id'];
@@ -49,65 +49,125 @@ class PayTRPaymentProvider implements PaymentProviderInterface
             ];
         }
         $merchantOid = $data['merchant_oid'] ?? 'ORDER_' . time() . rand(1000, 9999);
-        $userIp = $data['user_ip'] ?? request()->ip();
+        $userIp = request()->getClientIp();
         $email = $data['email'];
         $paymentAmount = $this->convertToKurus($data['amount']);
-        $currency = $data['currency'] ?? 'TL';
+        // PayTR uses 'TL' not 'TRY' for Turkish Lira
+        $currency = 'TL';
 
         // Prepare user basket
         $userBasket = $this->prepareUserBasket($data['items'] ?? []);
+        $userBasketEncoded = base64_encode($userBasket);
 
-        $noInstallment = $data['no_installment'] ?? 1;
+        $noInstallment = $data['no_installment'] ?? 0;
         $maxInstallment = $data['max_installment'] ?? 0;
-        $paymentType = $data['payment_type'] ?? 'card';
-        $installmentCount = $data['installment_count'] ?? 0;
+        $testMode = $this->testMode ? '1' : '0';
 
-        // Generate PayTR token
+        // Generate PayTR token - MUST match exact order from PayTR documentation
+        // Order: merchant_id + user_ip + merchant_oid + email + payment_amount +
+        //        user_basket + no_installment + max_installment + currency + test_mode
+        // Then append merchant_salt when calling hash_hmac (NOT in the hash_str itself)
         $hashStr = $this->merchantId . $userIp . $merchantOid . $email .
-                   $paymentAmount . $paymentType . $installmentCount . $currency .
-                   ($this->testMode ? '1' : '0') . '0'; // non_3d is 0
+                   $paymentAmount . $userBasketEncoded . $noInstallment . $maxInstallment .
+                   $currency . $testMode;
+        $paytrToken = base64_encode(hash_hmac('sha256', $hashStr . $this->merchantSalt, $this->merchantKey, true));
 
-        $token = base64_encode(hash_hmac('sha256', $hashStr . $this->merchantSalt, $this->merchantKey, true));
+        // Debug: Log hash generation details
+        Log::info('PayTR Token Generation', [
+            'merchant_id' => $this->merchantId,
+            'user_ip' => $userIp,
+            'merchant_oid' => $merchantOid,
+            'email' => $email,
+            'payment_amount' => $paymentAmount,
+            'user_basket_encoded' => $userBasketEncoded,
+            'no_installment' => $noInstallment,
+            'max_installment' => $maxInstallment,
+            'currency' => $currency,
+            'test_mode' => $testMode,
+            'hash_str_length' => strlen($hashStr),
+            'merchant_salt_length' => strlen($this->merchantSalt),
+            'merchant_key_length' => strlen($this->merchantKey),
+            'generated_token' => $paytrToken,
+        ]);
 
-        // Prepare request data
+        // Prepare request data - match PayTR API documentation requirements
         $requestData = [
             'merchant_id' => $this->merchantId,
             'user_ip' => $userIp,
             'merchant_oid' => $merchantOid,
             'email' => $email,
-            'payment_type' => $paymentType,
             'payment_amount' => $paymentAmount,
-            'currency' => $currency,
-            'test_mode' => $this->testMode ? '1' : '0',
-            'non_3d' => '0',
-            'merchant_ok_url' => $data['success_url'] ?? config('app.url') . '/payments/success',
-            'merchant_fail_url' => $data['fail_url'] ?? config('app.url') . '/payments/error',
-            'user_name' => $data['user_name'] ?? 'Customer',
-            'user_address' => $data['user_address'] ?? 'N/A',
-            'user_phone' => $data['user_phone'] ?? '0000000000',
-            'user_basket' => base64_encode($userBasket),
-            'debug_on' => $this->testMode ? '1' : '0',
-            'client_lang' => 'tr',
-            'paytr_token' => $token,
+            'paytr_token' => $paytrToken,
+            'user_basket' => $userBasketEncoded,
+            'debug_on' => $testMode,
             'no_installment' => $noInstallment,
             'max_installment' => $maxInstallment,
-            'installment_count' => $installmentCount,
+            'user_name' => $data['user_name'] ?? 'Customer',
+            'user_address' => $data['user_address'] ?? '',
+            'user_phone' => $data['user_phone'] ?? '0000000000',
+            'merchant_ok_url' => $data['success_url'] ?? config('app.url') . '/payments/success',
+            'merchant_fail_url' => $data['fail_url'] ?? config('app.url') . '/payments/error',
+            'timeout_limit' => $data['timeout_limit'] ?? '30',
+            'currency' => $currency,
+            'test_mode' => $testMode,
         ];
 
-        // Add utoken if provided (for card storage)
+        // Add optional card storage parameters if provided
         if (isset($data['utoken'])) {
             $requestData['utoken'] = $data['utoken'];
         }
 
-        // Add store_card flag if requested
         if (isset($data['store_card']) && $data['store_card']) {
             $requestData['store_card'] = '1';
         }
 
-        try {
-            $response = Http::asForm()->post($this->apiUrl . '/odeme/api/get-token', $requestData);
+        // Add optional payment type if needed (non_3d, etc.)
+        if (isset($data['non_3d'])) {
+            $requestData['non_3d'] = $data['non_3d'];
+        }
 
-            $result = json_decode($response->body(), true);
+        if (isset($data['payment_type'])) {
+            $requestData['payment_type'] = $data['payment_type'];
+        }
+
+        if (isset($data['installment_count']) && $data['installment_count'] > 0) {
+            $requestData['installment_count'] = $data['installment_count'];
+        }
+
+        try {
+            Log::info('PayTR payment initialization request', [
+                'url' => $this->apiUrl . '/odeme/api/get-token',
+                'requestData' => $requestData,
+                'requestDataKeys' => array_keys($requestData),
+            ]);
+
+            // Use cURL directly as per PayTR documentation
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $this->apiUrl . '/odeme/api/get-token');
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($ch, CURLOPT_POST, 1);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $requestData);
+            curl_setopt($ch, CURLOPT_FRESH_CONNECT, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 20);
+
+            $responseBody = @curl_exec($ch);
+
+            if (curl_errno($ch)) {
+                $error = curl_error($ch);
+                curl_close($ch);
+                throw new \Exception('PAYTR IFRAME connection error: ' . $error);
+            }
+
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            $result = json_decode($responseBody, true);
+
+            Log::info('PayTR payment initialization response', [
+                'status_code' => $httpCode,
+                'response_body' => $responseBody,
+                'result' => $result,
+            ]);
 
             if ($result['status'] === 'success') {
                 return [
@@ -168,7 +228,7 @@ class PayTRPaymentProvider implements PaymentProviderInterface
     public function queryPaymentStatus(string $merchantOid): array
     {
         $hashStr = $merchantOid . $this->merchantSalt;
-        $token = base64_encode(hash_hmac('sha256', $hashStr, $this->merchantKey, true));
+        $token = base64_encode(hash_hmac    ('sha256', $hashStr, $this->merchantKey, true));
 
         try {
             $response = Http::asForm()->post($this->apiUrl . '/odeme/durum-sorgu', [
