@@ -44,8 +44,9 @@ class OAuthController extends Controller
                     ->with('error', 'Token exchange failed: ' . $tokenResponse['error']);
             }
 
+            $locationId = $tokenResponse['locationId'];
             // Create or update HL account
-            $account = $this->createOrUpdateAccount($tokenResponse, );
+            $account = $this->createOrUpdateAccount($tokenResponse);
 
             if (!$account) {
                 return redirect()->route('oauth.error')
