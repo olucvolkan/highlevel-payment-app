@@ -309,7 +309,7 @@ class PayTRSetupController extends Controller
             $testMode = $credentials['test_mode'] ? '1' : '0';
 
             // Create test data
-            $userIp = '127.0.0.1';
+            $userIp = request()->ip();
             $merchantOid = 'TEST_' . time();
             $email = 'test@example.com';
             $paymentAmount = '100'; // 1 TRY in kuruş
