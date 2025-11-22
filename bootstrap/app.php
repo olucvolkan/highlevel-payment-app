@@ -12,7 +12,15 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Exclude CSRF verification for specific routes
+        $middleware->validateCsrfTokens(except: [
+            'paytr/test',
+            'paytr/credentials',
+            'api/*',
+            'payments/callback',
+            'webhooks/*',
+            'oauth/uninstall',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

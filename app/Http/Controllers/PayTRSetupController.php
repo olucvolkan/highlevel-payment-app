@@ -309,11 +309,17 @@ class PayTRSetupController extends Controller
             $testMode = $credentials['test_mode'] ? '1' : '0';
 
             // Create test data
-            $userIp = request()->ip();
-            $merchantOid = 'TEST_' . time();
+            $userIp = request()->ip() ?: '127.0.0.1';
+            $merchantOid = 'TEST' . time(); // Alfanumerik, özel karakter yok
             $email = 'test@example.com';
-            $paymentAmount = '100'; // 1 TRY in kuruş
-            $userBasket = base64_encode('Test item');
+            $paymentAmount = '100'; // 100 kuruş = 1 TRY (integer string)
+
+            // PayTR expects user_basket as base64 encoded JSON array
+            $basket = [
+                ['Test Product', '100', 1] // [name, price, quantity]
+            ];
+            $userBasket = base64_encode(json_encode($basket));
+
             $noInstallment = '1';
             $maxInstallment = '1';
             $currency = 'TL';
@@ -324,8 +330,9 @@ class PayTRSetupController extends Controller
                 $maxInstallment . $currency . $testMode . $merchantSalt;
 
             $paytrToken = base64_encode(hash_hmac('sha256', $hashStr, $merchantKey, true));
-            // Test request to PayTR
-            $response = Http::timeout(10)->post('https://www.paytr.com/odeme/api/get-token', [
+
+            // Test request to PayTR (use asForm for proper form-data encoding)
+            $response = Http::asForm()->timeout(10)->post('https://www.paytr.com/odeme/api/get-token', [
                 'merchant_id' => $merchantId,
                 'user_ip' => $userIp,
                 'merchant_oid' => $merchantOid,
