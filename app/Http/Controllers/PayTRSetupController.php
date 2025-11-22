@@ -74,7 +74,7 @@ class PayTRSetupController extends Controller
                 ], 404);
             }
 
-//            // Test PayTR credentials before saving
+            //            // Test PayTR credentials before saving
 //            $testResult = $this->testPayTRCredentials([
 //                'merchant_id' => $request->merchant_id,
 //                'merchant_key' => $request->merchant_key,
@@ -258,8 +258,8 @@ class PayTRSetupController extends Controller
 
             // Generate hash
             $hashStr = $merchantId . $userIp . $merchantOid . $email .
-                      $paymentAmount . $userBasket . $noInstallment .
-                      $maxInstallment . $currency . $testMode . $merchantSalt;
+                $paymentAmount . $userBasket . $noInstallment .
+                $maxInstallment . $currency . $testMode . $merchantSalt;
 
             $paytrToken = base64_encode(hash_hmac('sha256', $hashStr, $merchantKey, true));
             // Test request to PayTR
@@ -284,7 +284,6 @@ class PayTRSetupController extends Controller
                 'test_mode' => $testMode,
             ]);
 
-            dd($response->json());
             if (!$response->successful()) {
                 return [
                     'success' => false,
