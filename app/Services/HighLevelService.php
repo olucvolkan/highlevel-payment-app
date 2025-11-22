@@ -28,12 +28,13 @@ class HighLevelService
     public function exchangeCodeForToken(string $code): array
     {
         try {
-            $response = Http::asForm()->post($this->oauthUrl . '/oauth/token', [
-                'client_id' => $this->clientId,
-                'client_secret' => $this->clientSecret,
-                'grant_type' => 'authorization_code',
-                'code' => $code,
-            ]);
+            // HighLevel requires multipart/form-data instead of application/x-www-form-urlencoded
+            $response = Http::asMultipart()
+                ->attach('client_id', $this->clientId)
+                ->attach('client_secret', $this->clientSecret)
+                ->attach('grant_type', 'authorization_code')
+                ->attach('code', $code)
+                ->post($this->oauthUrl . '/oauth/token');
 
             if ($response->successful()) {
                 return $response->json();
@@ -49,9 +50,6 @@ class HighLevelService
                 'body' => $response->body(),
                 'status' => $response->status(),
                 'details' => $response->json(),
-                'code' => $code,
-                'client_id' => $this->clientId,
-                'client_secret' => $this->clientSecret
             ];
         } catch (\Exception $e) {
             Log::error('HighLevel token exchange exception', [
@@ -70,12 +68,13 @@ class HighLevelService
     public function refreshToken(HLAccount $account): array
     {
         try {
-            $response = Http::asForm()->post($this->oauthUrl . '/oauth/token', [
-                'client_id' => $this->clientId,
-                'client_secret' => $this->clientSecret,
-                'grant_type' => 'refresh_token',
-                'refresh_token' => $account->refresh_token,
-            ]);
+            // HighLevel requires multipart/form-data instead of application/x-www-form-urlencoded
+            $response = Http::asMultipart()
+                ->attach('client_id', $this->clientId)
+                ->attach('client_secret', $this->clientSecret)
+                ->attach('grant_type', 'refresh_token')
+                ->attach('refresh_token', $account->refresh_token)
+                ->post($this->oauthUrl . '/oauth/token');
 
             if ($response->successful()) {
                 $data = $response->json();
