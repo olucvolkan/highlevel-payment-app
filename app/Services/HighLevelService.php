@@ -46,7 +46,12 @@ class HighLevelService
 
             return [
                 'error' => 'Token exchange failed',
+                'body' => $response->body(),
+                'status' => $response->status(),
                 'details' => $response->json(),
+                'code' => $code,
+                'client_id' => $this->clientId,
+                'client_secret' => $this->clientSecret
             ];
         } catch (\Exception $e) {
             Log::error('HighLevel token exchange exception', [

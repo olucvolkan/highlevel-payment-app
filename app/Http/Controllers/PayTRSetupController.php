@@ -23,16 +23,17 @@ class PayTRSetupController extends Controller
      */
     public function showSetup(Request $request): \Illuminate\View\View
     {
-        $locationId = $request->get('location_id');
+        // Try to get location_id from multiple sources
+        $locationId = $this->extractLocationId($request);
 
         if (!$locationId) {
-            abort(400, 'Missing location_id parameter');
+            abort(400, 'Missing location_id parameter. Please access this page through HighLevel or provide location_id in the URL.');
         }
 
         $account = HLAccount::where('location_id', $locationId)->first();
 
         if (!$account) {
-            abort(404, 'Account not found');
+            abort(404, 'Account not found for location: ' . $locationId);
         }
 
         return view('paytr.setup', [
@@ -40,6 +41,67 @@ class PayTRSetupController extends Controller
             'locationId' => $locationId,
             'isConfigured' => $account->hasPayTRCredentials(),
         ]);
+    }
+
+    /**
+     * Extract location_id from request (query param, session, or auth token)
+     */
+    protected function extractLocationId(Request $request): ?string
+    {
+        // 1. Try from query parameter (most common)
+        if ($request->has('location_id')) {
+            return $request->get('location_id');
+        }
+
+        // 2. Try from session (set during OAuth)
+        if ($request->session()->has('location_id')) {
+            return $request->session()->get('location_id');
+        }
+
+        // 3. Try to decode from HighLevel auth_token (if provided in iframe)
+        if ($request->has('auth_token')) {
+            try {
+                $token = $request->get('auth_token');
+                $decoded = $this->decodeHighLevelToken($token);
+                if (isset($decoded['locationId'])) {
+                    return $decoded['locationId'];
+                }
+            } catch (\Exception $e) {
+                Log::warning('Failed to decode auth_token', [
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Decode HighLevel auth token to get location info
+     */
+    protected function decodeHighLevelToken(string $token): ?array
+    {
+        // HighLevel auth tokens are encrypted with SSO key
+        // This is a placeholder - implement based on HighLevel's SSO documentation
+        $ssoKey = config('services.highlevel.sso_key');
+
+        if (!$ssoKey) {
+            return null;
+        }
+
+        // Decrypt token using SSO key (implementation depends on HL's encryption method)
+        // For now, we'll just try to decode as JWT
+        try {
+            $parts = explode('.', $token);
+            if (count($parts) === 3) {
+                $payload = json_decode(base64_decode($parts[1]), true);
+                return $payload;
+            }
+        } catch (\Exception $e) {
+            // Token decode failed
+        }
+
+        return null;
     }
 
     /**

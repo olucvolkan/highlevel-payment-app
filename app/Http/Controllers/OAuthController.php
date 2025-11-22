@@ -75,12 +75,16 @@ class OAuthController extends Controller
                 'integration_id' => $integrationResult['_id'] ?? null,
             ]);
 
+            // Store location_id in session for later use
+            session(['location_id' => $locationId]);
+
             // Check if PayTR is already configured
             if ($account->hasPayTRCredentials()) {
                 // PayTR already configured, redirect to success page
                 return redirect()->route('oauth.success')
                     ->with('success', 'Integration successfully installed!')
-                    ->with('account_id', $account->id);
+                    ->with('account_id', $account->id)
+                    ->with('location_id', $locationId);
             } else {
                 // PayTR not configured, redirect to setup page
                 return redirect()->route('paytr.setup', ['location_id' => $locationId])
