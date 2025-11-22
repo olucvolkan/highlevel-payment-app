@@ -36,7 +36,12 @@ class PayTRSetupController extends Controller
             abort(404, 'Account not found for location: ' . $locationId);
         }
 
-        return view('paytr.setup', [
+        // Check if request is from HighLevel iframe
+        $isIframe = $request->has('iframe') || $request->header('X-HighLevel-Iframe');
+
+        $viewName = $isIframe ? 'paytr.setup-highlevel' : 'paytr.setup';
+
+        return view($viewName, [
             'account' => $account,
             'locationId' => $locationId,
             'isConfigured' => $account->hasPayTRCredentials(),
