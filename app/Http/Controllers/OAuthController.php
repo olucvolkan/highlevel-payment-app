@@ -25,11 +25,10 @@ class OAuthController extends Controller
     {
         $code = $request->get('code');
         $state = $request->get('state');
-        $locationId = $request->get('location_id');
 
         if (!$code) {
             Log::error('OAuth callback missing authorization code', $request->all());
-            
+
             return redirect()->route('oauth.error')
                 ->with('error', 'Authorization code missing');
         }
@@ -40,13 +39,13 @@ class OAuthController extends Controller
 
             if (isset($tokenResponse['error'])) {
                 Log::error('OAuth token exchange failed', $tokenResponse);
-                
+
                 return redirect()->route('oauth.error')
                     ->with('error', 'Token exchange failed: ' . $tokenResponse['error']);
             }
 
             // Create or update HL account
-            $account = $this->createOrUpdateAccount($tokenResponse, $locationId);
+            $account = $this->createOrUpdateAccount($tokenResponse, );
 
             if (!$account) {
                 return redirect()->route('oauth.error')
@@ -65,7 +64,7 @@ class OAuthController extends Controller
                     'account_id' => $account->id,
                     'error' => $integrationResult,
                 ]);
-                
+
                 // Don't fail the OAuth process, just log the error
                 // The integration can be created manually later
             }
@@ -158,18 +157,13 @@ class OAuthController extends Controller
     /**
      * Create or update HL account from token response
      */
-    protected function createOrUpdateAccount(array $tokenData, ?string $locationId): ?HLAccount
+    protected function createOrUpdateAccount(array $tokenData): ?HLAccount
     {
         // Extract user and location info from token
         $accessToken = $tokenData['access_token'];
         $refreshToken = $tokenData['refresh_token'] ?? null;
         $expiresIn = $tokenData['expires_in'] ?? 3600;
-
-        // In a real implementation, you'd decode the JWT token to get user/location info
-        // For now, we'll use the locationId from the request or extract from token
-        if (!$locationId && isset($tokenData['location_id'])) {
-            $locationId = $tokenData['location_id'];
-        }
+        $locationId = $tokenData['locationId'] ?? null;
 
         if (!$locationId) {
             Log::error('No location ID available in OAuth response', $tokenData);
