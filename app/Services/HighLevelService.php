@@ -6,6 +6,8 @@ use App\Models\HLAccount;
 use App\Models\WebhookLog;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use GuzzleHttp\Client;
+use GuzzleHttp\Exception\GuzzleException;
 
 class HighLevelService
 {
@@ -22,34 +24,43 @@ class HighLevelService
         $this->apiUrl = config('services.highlevel.api_url');
     }
 
-    /**
-     * Exchange authorization code for access token.
-     */
-    public function exchangeCodeForToken(string $code): array
+    public function exchangeCodeForToken(string $code, string $userType = 'Company'): array
     {
         try {
-            // HighLevel requires multipart/form-data instead of application/x-www-form-urlencoded
-            $response = Http::asMultipart()
-                ->attach('client_id', $this->clientId)
-                ->attach('client_secret', $this->clientSecret)
-                ->attach('grant_type', 'authorization_code')
-                ->attach('code', $code)
-                ->post($this->oauthUrl . '/oauth/token');
+            $client = new Client();
 
-            if ($response->successful()) {
-                return $response->json();
-            }
+            $headers = [
+                'Accept' => 'application/json',
+                'Content-Type' => 'application/x-www-form-urlencoded'
+            ];
 
+            $options = [
+                'form_params' => [
+                    'client_id' => $this->clientId,
+                    'client_secret' => $this->clientSecret,
+                    'grant_type' => 'authorization_code',
+                    'code' => $code,
+                    'user_type' => $userType,
+                ],
+                'headers' => $headers,
+            ];
+
+            $response = $client->post($this->oauthUrl . '/oauth/token', $options);
+            $body = json_decode($response->getBody()->getContents(), true);
+            Log::info('HighLevel token exchange successful', [
+                'has_access_token' => isset($body['access_token']),
+            ]);
+
+            return $body;
+
+        } catch (GuzzleException $e) {
             Log::error('HighLevel token exchange failed', [
-                'status' => $response->status(),
-                'body' => $response->body(),
+                'error' => $e->getMessage(),
+                'code' => $e->getCode(),
             ]);
 
             return [
-                'error' => 'Token exchange failed',
-                'body' => $response->body(),
-                'status' => $response->status(),
-                'details' => $response->json(),
+                'error' => 'Token exchange failed: ' . $e->getMessage(),
             ];
         } catch (\Exception $e) {
             Log::error('HighLevel token exchange exception', [
@@ -62,35 +73,55 @@ class HighLevelService
         }
     }
 
+
     /**
      * Refresh access token.
      */
     public function refreshToken(HLAccount $account): array
     {
         try {
-            // HighLevel requires multipart/form-data instead of application/x-www-form-urlencoded
-            $response = Http::asMultipart()
-                ->attach('client_id', $this->clientId)
-                ->attach('client_secret', $this->clientSecret)
-                ->attach('grant_type', 'refresh_token')
-                ->attach('refresh_token', $account->refresh_token)
-                ->post($this->oauthUrl . '/oauth/token');
+            $client = new Client();
 
-            if ($response->successful()) {
-                $data = $response->json();
+            $headers = [
+                'Accept' => 'application/json',
+                'Content-Type' => 'application/x-www-form-urlencoded'
+            ];
 
-                $account->update([
-                    'access_token' => $data['access_token'],
-                    'refresh_token' => $data['refresh_token'] ?? $account->refresh_token,
-                    'token_expires_at' => now()->addSeconds($data['expires_in']),
-                ]);
+            $options = [
+                'form_params' => [
+                    'client_id' => $this->clientId,
+                    'client_secret' => $this->clientSecret,
+                    'grant_type' => 'refresh_token',
+                    'refresh_token' => $account->refresh_token,
+                ],
+                'headers' => $headers,
+            ];
 
-                return $data;
-            }
+            $response = $client->post($this->oauthUrl . '/oauth/token', $options);
+
+            $data = json_decode($response->getBody()->getContents(), true);
+
+            $account->update([
+                'access_token' => $data['access_token'],
+                'refresh_token' => $data['refresh_token'] ?? $account->refresh_token,
+                'token_expires_at' => now()->addSeconds($data['expires_in']),
+            ]);
+
+            Log::info('HighLevel token refresh successful', [
+                'account_id' => $account->id,
+            ]);
+
+            return $data;
+
+        } catch (GuzzleException $e) {
+            Log::error('HighLevel token refresh failed', [
+                'account_id' => $account->id,
+                'error' => $e->getMessage(),
+                'code' => $e->getCode(),
+            ]);
 
             return [
-                'error' => 'Token refresh failed',
-                'details' => $response->json(),
+                'error' => 'Token refresh failed: ' . $e->getMessage(),
             ];
         } catch (\Exception $e) {
             Log::error('HighLevel token refresh exception', [

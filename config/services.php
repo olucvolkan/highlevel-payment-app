@@ -52,7 +52,7 @@ return [
         'redirect_uri' => env('HIGHLEVEL_REDIRECT_URI'),
         'webhook_url' => env('HIGHLEVEL_WEBHOOK_URL'),
         'api_url' => env('HIGHLEVEL_API_URL', 'https://backend.leadconnectorhq.com'),
-        'oauth_url' => env('HIGHLEVEL_OAUTH_URL', 'https://marketplace.gohighlevel.com'),
+        'oauth_url' => env('HIGHLEVEL_OAUTH_URL', 'https://services.leadconnectorhq.com'),
     ],
 
 ];
