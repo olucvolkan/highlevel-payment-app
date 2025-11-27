@@ -28,9 +28,13 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
                     </svg>
                 </div>
-                <div>
+                <div class="flex-1">
                     <h1 class="text-2xl font-bold text-gray-900">PayTR Configuration</h1>
                     <p class="text-sm text-gray-600">Please update your test and live merchant settings to use the PayTR payment gateway.</p>
+                    <!-- Location ID Display -->
+                    <p x-show="locationId" class="text-xs text-green-600 mt-1">
+                        <span class="font-medium">Location ID:</span> <span x-text="locationId"></span>
+                    </p>
                 </div>
             </div>
 
@@ -257,7 +261,7 @@
     function paytrSetup() {
         return {
             activeTab: 'test',
-            locationId: '{{ $locationId ?? '' }}',
+            locationId: @json($locationId ?? ''),
 
             testConfig: {
                 merchant_id: '',
@@ -337,13 +341,16 @@
                     }
 
                     // Final fallback - check if server provided it via Blade
-                    if (!this.locationId && '{{ $locationId ?? '' }}') {
-                        this.locationId = '{{ $locationId ?? '' }}';
+                    const serverLocationId = @json($locationId ?? '');
+                    if (!this.locationId && serverLocationId) {
+                        this.locationId = serverLocationId;
                         console.log('Using server-provided location_id:', this.locationId);
                     }
 
                     if (!this.locationId) {
                         console.warn('⚠️ Could not extract location_id. Please ensure the page is accessed with location_id parameter.');
+                    } else {
+                        console.log('✅ Final location_id:', this.locationId);
                     }
                 } catch (error) {
                     console.error('Error extracting location_id:', error);
@@ -351,6 +358,12 @@
             },
 
             async loadCurrentConfig() {
+                // Don't load config if we don't have location_id yet
+                if (!this.locationId) {
+                    console.warn('Skipping config load - no location_id available');
+                    return;
+                }
+
                 try {
                     const response = await fetch(`/paytr/config?location_id=${this.locationId}`);
                     if (response.ok) {
@@ -437,6 +450,12 @@
             },
 
             async saveConfig(mode) {
+                // Validate location_id before saving
+                if (!this.locationId) {
+                    alert('❌ Error: Location ID not found. Please refresh the page and try again.');
+                    return;
+                }
+
                 const config = mode === 'test' ? this.testConfig : this.liveConfig;
                 const testMode = mode === 'test';
 
@@ -447,6 +466,8 @@
                 }
 
                 try {
+                    console.log('Saving config with location_id:', this.locationId);
+
                     const response = await fetch('/paytr/credentials', {
                         method: 'POST',
                         headers: {
