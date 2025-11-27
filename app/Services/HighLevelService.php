@@ -47,8 +47,11 @@ class HighLevelService
 
             $response = $client->post($this->oauthUrl . '/oauth/token', $options);
             $body = json_decode($response->getBody()->getContents(), true);
+
             Log::info('HighLevel token exchange successful', [
                 'has_access_token' => isset($body['access_token']),
+                'response_keys' => array_keys($body),
+                'full_response' => $body, // Log full response to debug location_id issue
             ]);
 
             return $body;

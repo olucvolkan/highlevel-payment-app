@@ -68,10 +68,10 @@ class PayTRSetupController extends Controller
             try {
                 $token = $request->get('auth_token');
                 $decoded = $this->decodeHighLevelToken($token);
-                if (isset($decoded['locationId'])) {
-                    return $decoded['locationId'];
+                if (array_key_exists('location_id', $decoded)) {
+                    return $decoded['location_id'];
                 }
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 Log::warning('Failed to decode auth_token', [
                     'error' => $e->getMessage(),
                 ]);

@@ -24,7 +24,6 @@ class OAuthController extends Controller
     public function callback(Request $request): RedirectResponse
     {
         $code = $request->get('code');
-        $state = $request->get('state');
 
         if (!$code) {
             Log::error('OAuth callback missing authorization code', $request->all());
@@ -44,7 +43,22 @@ class OAuthController extends Controller
                     ->with('error', 'Token exchange failed: ' . $tokenResponse['error']);
             }
 
-            $locationId = $tokenResponse['locationId'];
+            // Extract location_id from multiple sources
+            $locationId = $this->extractLocationId($request, $tokenResponse);
+
+            if (!$locationId) {
+                Log::error('OAuth callback missing location_id', [
+                    'request' => $request->all(),
+                    'token_response' => $tokenResponse,
+                ]);
+
+                return redirect()->route('oauth.error')
+                    ->with('error', 'Location ID not found in OAuth response');
+            }
+
+            // Add locationId to token response for account creation
+            $tokenResponse['locationId'] = $locationId;
+
             // Create or update HL account
             $account = $this->createOrUpdateAccount($tokenResponse);
 
@@ -153,6 +167,46 @@ class OAuthController extends Controller
         ]);
 
         return redirect($authUrl);
+    }
+
+    /**
+     * Extract location_id from request or token response
+     */
+    protected function extractLocationId(Request $request, array $tokenResponse): ?string
+    {
+        // Try multiple sources for location_id
+
+        // 1. From query parameter (most common in OAuth callback)
+        if ($request->has('location_id')) {
+            return $request->get('location_id');
+        }
+
+        // 2. From token response - try different possible keys
+        $possibleKeys = ['locationId', 'location_id', 'companyId', 'company_id'];
+        foreach ($possibleKeys as $key) {
+            if (isset($tokenResponse[$key])) {
+                return $tokenResponse[$key];
+            }
+        }
+
+        // 3. From session (set during authorize)
+        if ($request->session()->has('location_id')) {
+            return $request->session()->get('location_id');
+        }
+
+        // 4. Try to extract from state parameter if it contains location info
+        if ($request->has('state')) {
+            $state = $request->get('state');
+            // Check if state contains location_id (some OAuth flows encode it)
+            if (str_contains($state, 'location_')) {
+                preg_match('/location_([a-zA-Z0-9]+)/', $state, $matches);
+                if (!empty($matches[1])) {
+                    return $matches[1];
+                }
+            }
+        }
+
+        return null;
     }
 
     /**
