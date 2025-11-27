@@ -27,9 +27,22 @@ class PayTRSetupController extends Controller
         $locationId = $this->extractLocationId($request);
 
         // Check if request is from HighLevel iframe
-        $isIframe = $request->has('iframe') || $request->header('X-HighLevel-Iframe');
+        // Check multiple indicators: iframe param, HighLevel header, or HighLevel referrer
+        $isIframe = $request->has('iframe')
+            || $request->header('X-HighLevel-Iframe')
+            || $this->isHighLevelReferrer($request);
 
         $viewName = $isIframe ? 'paytr.setup-highlevel' : 'paytr.setup';
+
+        Log::info('PayTR Setup page accessed', [
+            'is_iframe' => $isIframe,
+            'view_name' => $viewName,
+            'location_id' => $locationId,
+            'has_iframe_param' => $request->has('iframe'),
+            'has_hl_header' => $request->header('X-HighLevel-Iframe') !== null,
+            'is_hl_referrer' => $this->isHighLevelReferrer($request),
+            'referrer' => $request->header('referer'),
+        ]);
 
         // If iframe view and no location_id yet, let JavaScript extract it from parent URL
         if ($isIframe && !$locationId) {
@@ -66,6 +79,33 @@ class PayTRSetupController extends Controller
             'locationId' => $locationId,
             'isConfigured' => $account->hasPayTRCredentials(),
         ]);
+    }
+
+    /**
+     * Check if request is coming from HighLevel iframe based on referrer
+     */
+    protected function isHighLevelReferrer(Request $request): bool
+    {
+        $referrer = $request->header('referer') ?? $request->server('HTTP_REFERER');
+
+        if (!$referrer) {
+            return false;
+        }
+
+        // Check if referrer is from HighLevel domains
+        $highLevelDomains = [
+            'app.gohighlevel.com',
+            'app.msgsndr.com',
+            'app.leadconnectorhq.com',
+        ];
+
+        foreach ($highLevelDomains as $domain) {
+            if (str_contains($referrer, $domain)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

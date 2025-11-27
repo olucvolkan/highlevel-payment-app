@@ -280,6 +280,7 @@
             liveTesting: false,
             testResult: null,
             liveResult: null,
+            configLoaded: false,
 
             get isTestFormValid() {
                 return this.testConfig.merchant_id &&
@@ -294,9 +295,39 @@
             },
 
             init() {
+                // Setup HighLevel postMessage listener first
+                this.setupHighLevelListener();
+
                 // Extract location_id from parent URL if in iframe
                 this.extractLocationFromParent();
+
+                // Load config (will wait if locationId not available yet)
                 this.loadCurrentConfig();
+            },
+
+            /**
+             * Setup HighLevel postMessage listener to receive locationId
+             * HighLevel sends geoLocation event with locationId when iframe loads
+             */
+            setupHighLevelListener() {
+                window.addEventListener("message", (event) => {
+                    console.log('📨 Received postMessage:', event.data);
+
+                    if (!event.data) return;
+
+                    // HighLevel sends geoLocation message with locationId
+                    if (event.data.type === "geoLocation" && event.data.locationId) {
+                        console.log('🎯 Received locationId from HighLevel:', event.data.locationId);
+                        this.locationId = event.data.locationId;
+
+                        // Load config now that we have location_id
+                        if (!this.configLoaded) {
+                            this.loadCurrentConfig();
+                        }
+                    }
+                });
+
+                console.log('✅ HighLevel postMessage listener registered');
             },
 
             /**
@@ -304,54 +335,58 @@
              * Example parent URL: https://app.gohighlevel.com/v2/location/H5IIx3zthXcZMJ77yOW6/integration/...
              */
             extractLocationFromParent() {
+                console.log('🔍 Starting fallback location_id extraction...');
+                console.log('document.referrer:', document.referrer);
+                console.log('window.location.href:', window.location.href);
+                console.log('In iframe?', window.self !== window.top);
+
                 try {
-                    // Check if we're in an iframe
+                    // Priority 1: URL parameters (set by HighLevel via {{location_id}} template)
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const locationParam = urlParams.get('location_id');
+
+                    if (locationParam) {
+                        this.locationId = locationParam;
+                        console.log('✅ Extracted location_id from query param:', this.locationId);
+                        return;
+                    }
+
+                    // Priority 2: Server-provided via Blade template
+                    const serverLocationId = @json($locationId ?? '');
+                    if (serverLocationId) {
+                        this.locationId = serverLocationId;
+                        console.log('✅ Using server-provided location_id:', this.locationId);
+                        return;
+                    }
+
+                    // Priority 3: document.referrer (fallback for cross-origin iframes)
+                    if (document.referrer) {
+                        const locationMatch = document.referrer.match(/\/location\/([a-zA-Z0-9_-]+)/);
+
+                        if (locationMatch && locationMatch[1]) {
+                            this.locationId = locationMatch[1];
+                            console.log('✅ Extracted location_id from referrer:', this.locationId);
+                            return;
+                        }
+                    }
+
+                    // Priority 4: Parent URL if same-origin (rare case)
                     if (window.self !== window.top) {
-                        // Try to get parent URL (will fail if cross-origin)
                         try {
                             const parentUrl = window.parent.location.href;
                             const locationMatch = parentUrl.match(/\/location\/([a-zA-Z0-9_-]+)/);
 
                             if (locationMatch && locationMatch[1]) {
                                 this.locationId = locationMatch[1];
-                                console.log('Extracted location_id from parent URL:', this.locationId);
+                                console.log('✅ Extracted location_id from parent URL:', this.locationId);
+                                return;
                             }
                         } catch (e) {
-                            // Cross-origin restriction - try document.referrer instead
-                            if (document.referrer) {
-                                const locationMatch = document.referrer.match(/\/location\/([a-zA-Z0-9_-]+)/);
-
-                                if (locationMatch && locationMatch[1]) {
-                                    this.locationId = locationMatch[1];
-                                    console.log('Extracted location_id from referrer:', this.locationId);
-                                }
-                            }
+                            console.log('⚠️ Cross-origin: Cannot access parent.location (expected)');
                         }
                     }
 
-                    // If still no location_id, try URL parameters
-                    if (!this.locationId) {
-                        const urlParams = new URLSearchParams(window.location.search);
-                        const locationParam = urlParams.get('location_id');
-
-                        if (locationParam) {
-                            this.locationId = locationParam;
-                            console.log('Extracted location_id from query param:', this.locationId);
-                        }
-                    }
-
-                    // Final fallback - check if server provided it via Blade
-                    const serverLocationId = @json($locationId ?? '');
-                    if (!this.locationId && serverLocationId) {
-                        this.locationId = serverLocationId;
-                        console.log('Using server-provided location_id:', this.locationId);
-                    }
-
-                    if (!this.locationId) {
-                        console.warn('⚠️ Could not extract location_id. Please ensure the page is accessed with location_id parameter.');
-                    } else {
-                        console.log('✅ Final location_id:', this.locationId);
-                    }
+                    console.log('ℹ️ No location_id found via fallback methods - waiting for HighLevel postMessage...');
                 } catch (error) {
                     console.error('Error extracting location_id:', error);
                 }
@@ -360,21 +395,32 @@
             async loadCurrentConfig() {
                 // Don't load config if we don't have location_id yet
                 if (!this.locationId) {
-                    console.warn('Skipping config load - no location_id available');
+                    console.warn('⏳ Skipping config load - waiting for location_id from HighLevel...');
                     return;
                 }
+
+                // Mark as loaded to prevent duplicate loads
+                this.configLoaded = true;
+
+                console.log('📥 Loading config for location_id:', this.locationId);
 
                 try {
                     const response = await fetch(`/paytr/config?location_id=${this.locationId}`);
                     if (response.ok) {
                         const data = await response.json();
+                        console.log('Config loaded:', data);
+
                         if (data.configured) {
                             // Load existing config
                             if (data.test_mode) {
                                 this.testConfig.merchant_id = data.merchant_id;
+                                console.log('✅ Loaded test config');
                             } else {
                                 this.liveConfig.merchant_id = data.merchant_id;
+                                console.log('✅ Loaded live config');
                             }
+                        } else {
+                            console.log('ℹ️ No existing config found');
                         }
                     }
                 } catch (error) {
