@@ -23,62 +23,69 @@ class PayTRSetupController extends Controller
      */
     public function showSetup(Request $request): \Illuminate\View\View
     {
-        // Try to get location_id from multiple sources
-        $locationId = $this->extractLocationId($request);
-
         // Check if request is from HighLevel iframe
-        // Check multiple indicators: iframe param, HighLevel header, or HighLevel referrer
         $isIframe = $request->has('iframe')
             || $request->header('X-HighLevel-Iframe')
             || $this->isHighLevelReferrer($request);
 
         $viewName = $isIframe ? 'paytr.setup-highlevel' : 'paytr.setup';
 
+        // Try to get location_id from multiple sources
+        $locationId = $this->extractLocationId($request);
+
         Log::info('PayTR Setup page accessed', [
             'is_iframe' => $isIframe,
             'view_name' => $viewName,
             'location_id' => $locationId,
-            'has_iframe_param' => $request->has('iframe'),
-            'has_hl_header' => $request->header('X-HighLevel-Iframe') !== null,
-            'is_hl_referrer' => $this->isHighLevelReferrer($request),
             'referrer' => $request->header('referer'),
         ]);
 
-        // If iframe view and no location_id yet, let JavaScript extract it from parent URL
-        if ($isIframe && !$locationId) {
-            return view($viewName, [
-                'account' => null,
-                'locationId' => null,
-                'isConfigured' => false,
-            ]);
+        // If no location_id from URL/session, try to find it from referrer
+        if (!$locationId && $isIframe) {
+            $locationId = $this->extractLocationIdFromReferrer($request);
+            Log::info('Extracted location_id from referrer', ['location_id' => $locationId]);
         }
 
-        // For non-iframe or when we have location_id, validate and load account
+        // If still no location_id, check if we have any active account (single tenant scenario)
         if (!$locationId) {
-            abort(400, 'Missing location_id parameter. Please access this page through HighLevel or provide location_id in the URL.');
+            $account = HLAccount::where('is_active', true)->latest()->first();
+            if ($account) {
+                $locationId = $account->location_id;
+                Log::info('Using latest active account location_id', ['location_id' => $locationId]);
+            }
         }
 
-        $account = HLAccount::where('location_id', $locationId)->first();
-
-        if (!$account) {
-            // If accessed from HighLevel iframe but account doesn't exist yet,
-            // show the setup page anyway (account might be created during OAuth)
-            if ($isIframe) {
-                return view($viewName, [
-                    'account' => null,
-                    'locationId' => $locationId,
-                    'isConfigured' => false,
-                ]);
-            }
-
-            abort(404, 'Account not found for location: ' . $locationId);
+        // If we have location_id, load the account
+        $account = null;
+        if ($locationId) {
+            $account = HLAccount::where('location_id', $locationId)->first();
         }
 
         return view($viewName, [
             'account' => $account,
             'locationId' => $locationId,
-            'isConfigured' => $account->hasPayTRCredentials(),
+            'isConfigured' => $account ? $account->hasPayTRCredentials() : false,
         ]);
+    }
+
+    /**
+     * Extract location_id from referrer URL
+     * Example: https://app.gohighlevel.com/v2/location/H5IIx3zthXcZMJ77yOW6/integration/...
+     */
+    protected function extractLocationIdFromReferrer(Request $request): ?string
+    {
+        $referrer = $request->header('referer') ?? $request->server('HTTP_REFERER');
+
+        if (!$referrer) {
+            return null;
+        }
+
+        // Match HighLevel location URL pattern
+        if (preg_match('/\/location\/([a-zA-Z0-9_-]+)/', $referrer, $matches)) {
+            return $matches[1];
+        }
+
+        return null;
     }
 
     /**

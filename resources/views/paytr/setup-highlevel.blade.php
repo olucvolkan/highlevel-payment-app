@@ -295,101 +295,11 @@
             },
 
             init() {
-                // Setup HighLevel postMessage listener first
-                this.setupHighLevelListener();
+                // Location ID is provided by backend via Blade template
+                console.log('✅ Location ID:', this.locationId);
 
-                // Extract location_id from parent URL if in iframe
-                this.extractLocationFromParent();
-
-                // Load config (will wait if locationId not available yet)
+                // Load existing config if we have location_id
                 this.loadCurrentConfig();
-            },
-
-            /**
-             * Setup HighLevel postMessage listener to receive locationId
-             * HighLevel sends geoLocation event with locationId when iframe loads
-             */
-            setupHighLevelListener() {
-                window.addEventListener("message", (event) => {
-                    console.log('📨 Received postMessage:', event.data);
-
-                    if (!event.data) return;
-
-                    // HighLevel sends geoLocation message with locationId
-                    if (event.data.type === "geoLocation" && event.data.locationId) {
-                        console.log('🎯 Received locationId from HighLevel:', event.data.locationId);
-                        this.locationId = event.data.locationId;
-
-                        // Load config now that we have location_id
-                        if (!this.configLoaded) {
-                            this.loadCurrentConfig();
-                        }
-                    }
-                });
-
-                console.log('✅ HighLevel postMessage listener registered');
-            },
-
-            /**
-             * Extract location_id from parent window URL when loaded in HighLevel iframe
-             * Example parent URL: https://app.gohighlevel.com/v2/location/H5IIx3zthXcZMJ77yOW6/integration/...
-             */
-            extractLocationFromParent() {
-                console.log('🔍 Starting fallback location_id extraction...');
-                console.log('document.referrer:', document.referrer);
-                console.log('window.location.href:', window.location.href);
-                console.log('In iframe?', window.self !== window.top);
-
-                try {
-                    // Priority 1: URL parameters (set by HighLevel via template variable)
-                    const urlParams = new URLSearchParams(window.location.search);
-                    const locationParam = urlParams.get('location_id');
-
-                    if (locationParam) {
-                        this.locationId = locationParam;
-                        console.log('✅ Extracted location_id from query param:', this.locationId);
-                        return;
-                    }
-
-                    // Priority 2: Server-provided via Blade template
-                    const serverLocationId = @json($locationId ?? '');
-                    if (serverLocationId) {
-                        this.locationId = serverLocationId;
-                        console.log('✅ Using server-provided location_id:', this.locationId);
-                        return;
-                    }
-
-                    // Priority 3: document.referrer (fallback for cross-origin iframes)
-                    if (document.referrer) {
-                        const locationMatch = document.referrer.match(/\/location\/([a-zA-Z0-9_-]+)/);
-
-                        if (locationMatch && locationMatch[1]) {
-                            this.locationId = locationMatch[1];
-                            console.log('✅ Extracted location_id from referrer:', this.locationId);
-                            return;
-                        }
-                    }
-
-                    // Priority 4: Parent URL if same-origin (rare case)
-                    if (window.self !== window.top) {
-                        try {
-                            const parentUrl = window.parent.location.href;
-                            const locationMatch = parentUrl.match(/\/location\/([a-zA-Z0-9_-]+)/);
-
-                            if (locationMatch && locationMatch[1]) {
-                                this.locationId = locationMatch[1];
-                                console.log('✅ Extracted location_id from parent URL:', this.locationId);
-                                return;
-                            }
-                        } catch (e) {
-                            console.log('⚠️ Cross-origin: Cannot access parent.location (expected)');
-                        }
-                    }
-
-                    console.log('ℹ️ No location_id found via fallback methods - waiting for HighLevel postMessage...');
-                } catch (error) {
-                    console.error('Error extracting location_id:', error);
-                }
             },
 
             async loadCurrentConfig() {
