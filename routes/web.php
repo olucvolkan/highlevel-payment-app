@@ -22,11 +22,11 @@ Route::prefix('oauth')->group(function () {
 Route::prefix('payments')->group(function () {
     // Payment iframe page (embedded in HighLevel)
     Route::get('/page', [PaymentController::class, 'paymentPage'])->name('payments.page');
-    
+
     // Payment result pages (redirects from PayTR)
     Route::get('/success', [PaymentController::class, 'success'])->name('payments.success');
     Route::get('/error', [PaymentController::class, 'error'])->name('payments.error');
-    
+
     // PayTR callback (also accessible via GET for testing)
     Route::match(['GET', 'POST'], '/callback', [PaymentController::class, 'callback'])->name('payments.callback');
 });
@@ -39,7 +39,9 @@ Route::prefix('paytr')->group(function () {
     Route::get('/config', [PayTRSetupController::class, 'showConfiguration'])->name('paytr.config');
     Route::delete('/config', [PayTRSetupController::class, 'removeConfiguration'])->name('paytr.remove');
 });
-
+Route::get('/marketplace.json', function () {
+    return response()->file(public_path('marketplace.json'));
+});
 // Documentation and Admin Routes
 Route::get('/docs', function () {
     return response()->json([
