@@ -341,7 +341,7 @@
                 console.log('In iframe?', window.self !== window.top);
 
                 try {
-                    // Priority 1: URL parameters (set by HighLevel via {{location_id}} template)
+                    // Priority 1: URL parameters (set by HighLevel via template variable)
                     const urlParams = new URLSearchParams(window.location.search);
                     const locationParam = urlParams.get('location_id');
 
