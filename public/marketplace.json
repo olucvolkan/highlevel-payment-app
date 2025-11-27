@@ -1,0 +1,78 @@
+{
+  "name": "PayTR - Yerel Ödeme",
+  "slug": "paytr-yerel-odeme",
+  "type": "PAYMENTS",
+  "version": "1.0.0",
+
+  "icon": "https://yerelodeme-payment-app-master-a645wy.laravel.cloud/images/paytr-logo.png",
+  "description": "Accept payments from Turkish customers using PayTR payment gateway. Türk müşterilerden PayTR ile ödeme kabul edin.",
+  "longDescription": "PayTR integration for HighLevel allows you to accept online payments from Turkish customers. Supports credit/debit cards, installment payments, and recurring subscriptions. Full PayTR Direct API integration with iframe payment pages.",
+  "categories": ["PAYMENTS"],
+
+  "auth": {
+    "type": "OAUTH2",
+    "authorizationUrl": "https://services.leadconnectorhq.com/oauth/chooselocation",
+    "tokenUrl": "https://services.leadconnectorhq.com/oauth/token",
+    "redirect_uri": "https://yerelodeme-payment-app-master-a645wy.laravel.cloud/oauth/callback",
+    "scopes": [
+      "payments/orders.readonly",
+      "payments/orders.write",
+      "payments/subscriptions.readonly",
+      "payments/transactions.readonly",
+      "payments/custom-provider.readonly",
+      "payments/custom-provider.write",
+      "products.readonly",
+      "products/prices.readonly"
+    ]
+  },
+
+  "settings": {
+    "pages": [
+      {
+        "title": "Settings",
+        "path": "/settings",
+        "iframe": "https://yerelodeme-payment-app-master-a645wy.laravel.cloud/paytr/setup?iframe=1"
+      }
+    ]
+  },
+
+  "webhooks": {
+    "install": "https://yerelodeme-payment-app-master-a645wy.laravel.cloud/api/webhooks/marketplace",
+    "uninstall": "https://yerelodeme-payment-app-master-a645wy.laravel.cloud/oauth/uninstall"
+  },
+
+  "payment": {
+    "queryUrl": "https://yerelodeme-payment-app-master-a645wy.laravel.cloud/api/payments/query",
+    "paymentsUrl": "https://yerelodeme-payment-app-master-a645wy.laravel.cloud/payments/page",
+    "supportedCurrencies": ["TRY", "USD", "EUR"],
+    "supportedPaymentMethods": ["CREDIT_CARD", "DEBIT_CARD"],
+    "features": {
+      "installments": true,
+      "subscriptions": true,
+      "refunds": true,
+      "cardStorage": true
+    }
+  },
+
+  "support": {
+    "email": "support@yerelodeme.com",
+    "documentation": "https://yerelodeme-payment-app-master-a645wy.laravel.cloud/docs",
+    "website": "https://yerelodeme-payment-app-master-a645wy.laravel.cloud"
+  },
+
+  "pricing": {
+    "model": "FREE",
+    "trial": false
+  },
+
+  "screenshots": [
+    "https://yerelodeme-payment-app-master-a645wy.laravel.cloud/images/screenshot-1.png",
+    "https://yerelodeme-payment-app-master-a645wy.laravel.cloud/images/screenshot-2.png"
+  ],
+
+  "publisher": {
+    "name": "Yerel Ödeme",
+    "website": "https://yerelodeme-payment-app-master-a645wy.laravel.cloud",
+    "email": "info@yerelodeme.com"
+  }
+}
