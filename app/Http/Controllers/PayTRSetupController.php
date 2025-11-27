@@ -26,6 +26,21 @@ class PayTRSetupController extends Controller
         // Try to get location_id from multiple sources
         $locationId = $this->extractLocationId($request);
 
+        // Check if request is from HighLevel iframe
+        $isIframe = $request->has('iframe') || $request->header('X-HighLevel-Iframe');
+
+        $viewName = $isIframe ? 'paytr.setup-highlevel' : 'paytr.setup';
+
+        // If iframe view and no location_id yet, let JavaScript extract it from parent URL
+        if ($isIframe && !$locationId) {
+            return view($viewName, [
+                'account' => null,
+                'locationId' => null,
+                'isConfigured' => false,
+            ]);
+        }
+
+        // For non-iframe or when we have location_id, validate and load account
         if (!$locationId) {
             abort(400, 'Missing location_id parameter. Please access this page through HighLevel or provide location_id in the URL.');
         }
@@ -33,13 +48,18 @@ class PayTRSetupController extends Controller
         $account = HLAccount::where('location_id', $locationId)->first();
 
         if (!$account) {
+            // If accessed from HighLevel iframe but account doesn't exist yet,
+            // show the setup page anyway (account might be created during OAuth)
+            if ($isIframe) {
+                return view($viewName, [
+                    'account' => null,
+                    'locationId' => $locationId,
+                    'isConfigured' => false,
+                ]);
+            }
+
             abort(404, 'Account not found for location: ' . $locationId);
         }
-
-        // Check if request is from HighLevel iframe
-        $isIframe = $request->has('iframe') || $request->header('X-HighLevel-Iframe');
-
-        $viewName = $isIframe ? 'paytr.setup-highlevel' : 'paytr.setup';
 
         return view($viewName, [
             'account' => $account,

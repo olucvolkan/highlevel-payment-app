@@ -257,7 +257,7 @@
     function paytrSetup() {
         return {
             activeTab: 'test',
-            locationId: '{{ $locationId }}',
+            locationId: '{{ $locationId ?? '' }}',
 
             testConfig: {
                 merchant_id: '',
@@ -290,7 +290,64 @@
             },
 
             init() {
+                // Extract location_id from parent URL if in iframe
+                this.extractLocationFromParent();
                 this.loadCurrentConfig();
+            },
+
+            /**
+             * Extract location_id from parent window URL when loaded in HighLevel iframe
+             * Example parent URL: https://app.gohighlevel.com/v2/location/H5IIx3zthXcZMJ77yOW6/integration/...
+             */
+            extractLocationFromParent() {
+                try {
+                    // Check if we're in an iframe
+                    if (window.self !== window.top) {
+                        // Try to get parent URL (will fail if cross-origin)
+                        try {
+                            const parentUrl = window.parent.location.href;
+                            const locationMatch = parentUrl.match(/\/location\/([a-zA-Z0-9_-]+)/);
+
+                            if (locationMatch && locationMatch[1]) {
+                                this.locationId = locationMatch[1];
+                                console.log('Extracted location_id from parent URL:', this.locationId);
+                            }
+                        } catch (e) {
+                            // Cross-origin restriction - try document.referrer instead
+                            if (document.referrer) {
+                                const locationMatch = document.referrer.match(/\/location\/([a-zA-Z0-9_-]+)/);
+
+                                if (locationMatch && locationMatch[1]) {
+                                    this.locationId = locationMatch[1];
+                                    console.log('Extracted location_id from referrer:', this.locationId);
+                                }
+                            }
+                        }
+                    }
+
+                    // If still no location_id, try URL parameters
+                    if (!this.locationId) {
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const locationParam = urlParams.get('location_id');
+
+                        if (locationParam) {
+                            this.locationId = locationParam;
+                            console.log('Extracted location_id from query param:', this.locationId);
+                        }
+                    }
+
+                    // Final fallback - check if server provided it via Blade
+                    if (!this.locationId && '{{ $locationId ?? '' }}') {
+                        this.locationId = '{{ $locationId ?? '' }}';
+                        console.log('Using server-provided location_id:', this.locationId);
+                    }
+
+                    if (!this.locationId) {
+                        console.warn('⚠️ Could not extract location_id. Please ensure the page is accessed with location_id parameter.');
+                    }
+                } catch (error) {
+                    console.error('Error extracting location_id:', error);
+                }
             },
 
             async loadCurrentConfig() {
