@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\HLAccount;
 use App\Logging\UserActionLogger;
+use App\Services\HighLevelService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Http\JsonResponse;
@@ -14,7 +15,8 @@ use Illuminate\Support\Facades\Validator;
 class PayTRSetupController extends Controller
 {
     public function __construct(
-        protected UserActionLogger $userActionLogger
+        protected UserActionLogger $userActionLogger,
+        protected HighLevelService $highLevelService
     ) {
     }
 
@@ -236,9 +238,27 @@ class PayTRSetupController extends Controller
                 'test_mode' => $request->boolean('test_mode', true),
             ]);
 
+            // Send config to HighLevel
+            $testMode = $request->boolean('test_mode', true);
+            $configResult = $this->highLevelService->connectConfig($account, [
+                $testMode ? 'testMode' : 'liveMode' => [
+                    'apiKey' => $request->merchant_id,
+                    'publishableKey' => $request->merchant_id, // PayTR uses merchant_id for both
+                ],
+            ]);
+
+            if (isset($configResult['error'])) {
+                Log::warning('Failed to send config to HighLevel', [
+                    'account_id' => $account->id,
+                    'error' => $configResult,
+                ]);
+                // Don't fail the request, config can be sent later
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'PayTR credentials saved successfully',
+                'highlevel_config_sent' => !isset($configResult['error']),
             ]);
 
         } catch (\Exception $e) {

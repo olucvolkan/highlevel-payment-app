@@ -140,35 +140,59 @@ class HighLevelService
 
     /**
      * Create Public Provider Config in HighLevel.
+     * This is the critical API call that makes your app appear in the Connect tab.
      */
     public function createPublicProviderConfig(HLAccount $account, array $data): array
     {
         try {
+            $payload = [
+                'name' => $data['name'] ?? 'PayTR Payment Integration',
+                'description' => $data['description'] ?? 'Secure payments via PayTR',
+                'imageUrl' => $data['imageUrl'] ?? config('app.url') . '/images/paytr-logo.png',
+                'locationId' => $account->location_id,
+                'queryUrl' => config('app.url') . '/api/payments/query',
+                'paymentsUrl' => config('app.url') . '/payments/page',
+            ];
+
+            Log::info('Creating HighLevel integration', [
+                'account_id' => $account->id,
+                'location_id' => $account->location_id,
+                'payload' => $payload,
+            ]);
+
             $response = Http::withToken($account->access_token)
-                ->post($this->apiUrl . '/payments/create-integration', [
-                    'name' => $data['name'] ?? 'PayTR Payment Integration',
-                    'description' => $data['description'] ?? 'Secure payments via PayTR',
-                    'imageUrl' => $data['imageUrl'] ?? config('app.url') . '/images/paytr-logo.png',
-                    'locationId' => $account->location_id,
-                    'queryUrl' => config('app.url') . '/api/payments/query',
-                    'paymentsUrl' => config('app.url') . '/payments/page',
-                ]);
+                ->post($this->apiUrl . '/payments/custom-provider/integration', $payload);
 
             if ($response->successful()) {
                 $result = $response->json();
+
+                Log::info('HighLevel integration created successfully', [
+                    'account_id' => $account->id,
+                    'integration_id' => $result['_id'] ?? null,
+                    'response' => $result,
+                ]);
+
                 $account->update(['integration_id' => $result['_id'] ?? null]);
 
                 return $result;
             }
 
+            Log::error('HighLevel integration creation failed', [
+                'account_id' => $account->id,
+                'status' => $response->status(),
+                'response' => $response->json(),
+            ]);
+
             return [
                 'error' => 'Failed to create integration',
                 'details' => $response->json(),
+                'status' => $response->status(),
             ];
         } catch (\Exception $e) {
-            Log::error('HighLevel create integration failed', [
+            Log::error('HighLevel create integration exception', [
                 'account_id' => $account->id,
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return [
@@ -179,34 +203,74 @@ class HighLevelService
 
     /**
      * Connect Config (test/live mode credentials).
+     * This should be called after the user configures PayTR credentials.
+     *
+     * @param HLAccount $account
+     * @param array $config Should contain 'testMode' and/or 'liveMode' keys with apiKey and publishableKey
+     * @return array
      */
-    public function connectConfig(HLAccount $account, array $config, string $mode = 'live'): array
+    public function connectConfig(HLAccount $account, array $config): array
     {
         try {
+            $payload = [
+                'locationId' => $account->location_id,
+            ];
+
+            // Support both test and live mode configuration in a single call
+            if (isset($config['testMode'])) {
+                $payload['testMode'] = [
+                    'apiKey' => $config['testMode']['apiKey'],
+                    'publishableKey' => $config['testMode']['publishableKey'],
+                ];
+            }
+
+            if (isset($config['liveMode'])) {
+                $payload['liveMode'] = [
+                    'apiKey' => $config['liveMode']['apiKey'],
+                    'publishableKey' => $config['liveMode']['publishableKey'],
+                ];
+            }
+
+            Log::info('Creating HighLevel config', [
+                'account_id' => $account->id,
+                'location_id' => $account->location_id,
+                'has_test_mode' => isset($config['testMode']),
+                'has_live_mode' => isset($config['liveMode']),
+            ]);
+
             $response = Http::withToken($account->access_token)
-                ->post($this->apiUrl . '/payments/create-config', [
-                    'locationId' => $account->location_id,
-                    'apiKey' => $config['apiKey'],
-                    'publishableKey' => $config['publishableKey'],
-                    'liveMode' => $mode === 'live',
-                ]);
+                ->post($this->apiUrl . '/payments/custom-provider/config', $payload);
 
             if ($response->successful()) {
                 $result = $response->json();
+
+                Log::info('HighLevel config created successfully', [
+                    'account_id' => $account->id,
+                    'config_id' => $result['_id'] ?? null,
+                    'response' => $result,
+                ]);
+
                 $account->update(['config_id' => $result['_id'] ?? null]);
 
                 return $result;
             }
 
+            Log::error('HighLevel config creation failed', [
+                'account_id' => $account->id,
+                'status' => $response->status(),
+                'response' => $response->json(),
+            ]);
+
             return [
                 'error' => 'Failed to connect config',
                 'details' => $response->json(),
+                'status' => $response->status(),
             ];
         } catch (\Exception $e) {
-            Log::error('HighLevel connect config failed', [
+            Log::error('HighLevel connect config exception', [
                 'account_id' => $account->id,
-                'mode' => $mode,
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return [
