@@ -23,6 +23,7 @@ class HLAccount extends Model
         'integration_id',
         'config_id',
         'whitelabel_provider_id',
+        'provider_callback_url',
         'is_active',
         'scopes',
         'metadata',

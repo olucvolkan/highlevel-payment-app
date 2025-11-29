@@ -35,9 +35,16 @@ Route::prefix('callbacks')->group(function () {
 Route::prefix('webhooks')->group(function () {
     // HighLevel marketplace webhooks (install/uninstall)
     Route::post('/marketplace', [WebhookController::class, 'marketplaceWebhook'])->name('webhooks.marketplace');
-    
+
     // HighLevel payment webhooks
     Route::post('/highlevel', [WebhookController::class, 'highlevelPaymentWebhook'])->name('webhooks.highlevel');
+});
+
+// HighLevel White-label Provider Integration Routes
+Route::prefix('highlevel')->group(function () {
+    // Provider registration endpoint (called by HighLevel when user clicks "Connect PayTR")
+    Route::post('/provider', [\App\Http\Controllers\HighLevelProviderController::class, 'register'])
+        ->name('highlevel.provider.register');
 });
 
 // Health Check and Status Routes

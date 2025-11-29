@@ -314,27 +314,40 @@ class HighLevelService
      * This registers the provider in the HighLevel marketplace.
      *
      * @param HLAccount $account The HighLevel account with valid access token
-     * @param array $data Provider configuration (name, description, paymentsUrl, queryUrl, imageUrl, supportsSubscriptionSchedule)
-     * @return array Response from HighLevel API or error details
+     * @param array{uniqueName?: string, title?: string, provider?: array, description?: string, imageUrl?: string} $data Provider configuration
+     * @return array{success: bool, data?: array, error?: string, details?: array, status?: int} Response from HighLevel API or error details
      */
     public function createWhiteLabelProvider(HLAccount $account, array $data): array
     {
         try {
+            // Validate required fields
+            if (!$account->location_id) {
+                throw new \InvalidArgumentException('Location ID is required for white-label provider creation');
+            }
+
+            if (!$account->access_token) {
+                throw new \InvalidArgumentException('Access token is required for white-label provider creation');
+            }
+
+            // Build payload according to HighLevel white-label provider API specification
             $payload = [
-                'name' => $data['name'] ?? config('services.highlevel.whitelabel.title', 'PayTR'),
+                'altId' => $account->location_id,
+                'altType' => 'location',
+                'uniqueName' => $data['uniqueName'] ?? config('services.highlevel.whitelabel.unique_name', 'paytr-direct'),
+                'title' => $data['title'] ?? config('services.highlevel.whitelabel.title', 'PayTR'),
+                'provider' => $data['provider'] ?? [
+                    'PAYTR' => config('services.highlevel.whitelabel.provider', 'paytr'),
+                ],
                 'description' => $data['description'] ?? config('services.highlevel.whitelabel.description', 'PayTR Payment Gateway for Turkey'),
-                'paymentsUrl' => $data['paymentsUrl'] ?? config('app.url') . '/payments/page',
-                'queryUrl' => $data['queryUrl'] ?? config('app.url') . '/api/payments/query',
                 'imageUrl' => $data['imageUrl'] ?? config('services.highlevel.whitelabel.image_url', config('app.url') . '/images/paytr-logo.png'),
-                'supportsSubscriptionSchedule' => $data['supportsSubscriptionSchedule'] ?? true,
             ];
 
             Log::info('Creating HighLevel white-label provider', [
                 'account_id' => $account->id,
                 'location_id' => $account->location_id,
-                'name' => $payload['name'],
-                'paymentsUrl' => $payload['paymentsUrl'],
-                'queryUrl' => $payload['queryUrl'],
+                'unique_name' => $payload['uniqueName'],
+                'title' => $payload['title'],
+                'alt_type' => $payload['altType'],
             ]);
 
             $response = Http::withToken($account->access_token)
@@ -343,7 +356,7 @@ class HighLevelService
                     'Content-Type' => 'application/json',
                     'Accept' => 'application/json',
                 ])
-                ->post('https://services.leadconnectorhq.com/payments/custom-provider/provider', $payload);
+                ->post('https://services.leadconnectorhq.com/payments/integrations/provider/whitelabel', $payload);
 
             if ($response->successful()) {
                 $result = $response->json();
@@ -351,13 +364,14 @@ class HighLevelService
                 Log::info('HighLevel white-label provider created successfully', [
                     'account_id' => $account->id,
                     'location_id' => $account->location_id,
-                    'provider_id' => $result['id'] ?? null,
-                    'name' => $payload['name'],
+                    'provider_id' => $result['id'] ?? $result['_id'] ?? null,
+                    'unique_name' => $payload['uniqueName'],
+                    'response' => $result,
                 ]);
 
-                // Optionally store the provider_id in the account
-                if (isset($result['id'])) {
-                    $account->update(['whitelabel_provider_id' => $result['id']]);
+                // Store the provider_id in the account (HighLevel may return 'id' or '_id')
+                if (isset($result['id']) || isset($result['_id'])) {
+                    $account->update(['whitelabel_provider_id' => $result['id'] ?? $result['_id']]);
                 }
 
                 return [
@@ -381,10 +395,22 @@ class HighLevelService
                 'status' => $response->status(),
             ];
 
+        } catch (\InvalidArgumentException $e) {
+            Log::error('HighLevel white-label provider creation validation failed', [
+                'account_id' => $account->id ?? null,
+                'location_id' => $account->location_id ?? 'N/A',
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+
         } catch (\Exception $e) {
             Log::error('HighLevel white-label provider creation exception', [
-                'account_id' => $account->id,
-                'location_id' => $account->location_id,
+                'account_id' => $account->id ?? null,
+                'location_id' => $account->location_id ?? 'N/A',
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
@@ -393,6 +419,70 @@ class HighLevelService
                 'success' => false,
                 'error' => $e->getMessage(),
             ];
+        }
+    }
+
+    /**
+     * Send provider connected callback to HighLevel.
+     * Called after user successfully configures PayTR credentials.
+     *
+     * @param HLAccount $account
+     * @return bool
+     */
+    public function sendProviderConnected(HLAccount $account): bool
+    {
+        if (!$account->provider_callback_url) {
+            Log::warning('Provider connected callback skipped - no callback URL', [
+                'account_id' => $account->id,
+                'location_id' => $account->location_id,
+            ]);
+            return false;
+        }
+
+        try {
+            $payload = [
+                'locationId' => $account->location_id,
+                'providerKey' => 'paytr',
+                'status' => 'connected',
+                'credentials' => [
+                    'configured' => true,
+                    'test_mode' => $account->paytr_test_mode ?? true,
+                ],
+                'timestamp' => now()->toIso8601String(),
+            ];
+
+            Log::info('Sending provider connected callback to HighLevel', [
+                'account_id' => $account->id,
+                'callback_url' => $account->provider_callback_url,
+                'payload' => $payload,
+            ]);
+
+            $response = Http::timeout(15)
+                ->post($account->provider_callback_url, $payload);
+
+            if ($response->successful()) {
+                Log::info('Provider connected callback sent successfully', [
+                    'account_id' => $account->id,
+                    'status' => $response->status(),
+                ]);
+                return true;
+            }
+
+            Log::error('Provider connected callback failed', [
+                'account_id' => $account->id,
+                'status' => $response->status(),
+                'response' => $response->body(),
+            ]);
+
+            return false;
+
+        } catch (\Exception $e) {
+            Log::error('Provider connected callback exception', [
+                'account_id' => $account->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
         }
     }
 

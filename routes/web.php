@@ -38,6 +38,14 @@ Route::prefix('paytr')->group(function () {
     Route::post('/test', [PayTRSetupController::class, 'testCredentials'])->name('paytr.test');
     Route::get('/config', [PayTRSetupController::class, 'showConfiguration'])->name('paytr.config');
     Route::delete('/config', [PayTRSetupController::class, 'removeConfiguration'])->name('paytr.remove');
+
+    // White-label provider connect flow routes
+    Route::get('/connect', [\App\Http\Controllers\HighLevelProviderController::class, 'connect'])
+        ->name('paytr.connect');
+    Route::post('/connect/save', [\App\Http\Controllers\HighLevelProviderController::class, 'saveCredentials'])
+        ->name('paytr.connect.save');
+    Route::get('/connect/success', [\App\Http\Controllers\HighLevelProviderController::class, 'connectSuccess'])
+        ->name('paytr.connect.success');
 });
 Route::get('/marketplace.json', function () {
     return response()->file(public_path('marketplace.json'));
