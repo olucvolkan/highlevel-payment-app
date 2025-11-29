@@ -53,6 +53,16 @@ return [
         'webhook_url' => env('HIGHLEVEL_WEBHOOK_URL'),
         'api_url' => env('HIGHLEVEL_API_URL', 'https://backend.leadconnectorhq.com'),
         'oauth_url' => env('HIGHLEVEL_OAUTH_URL', 'https://services.leadconnectorhq.com'),
+
+        // White-label payment provider configuration
+        // This is used to register PayTR as a custom provider in HighLevel marketplace
+        'whitelabel' => [
+            'unique_name' => env('HIGHLEVEL_WHITELABEL_UNIQUE_NAME', 'paytr-direct'),
+            'title' => env('HIGHLEVEL_WHITELABEL_TITLE', 'PayTR'),
+            'provider' => env('HIGHLEVEL_WHITELABEL_PROVIDER', 'paytr'),
+            'description' => env('HIGHLEVEL_WHITELABEL_DESCRIPTION', 'PayTR Payment Gateway for Turkey'),
+            'image_url' => env('HIGHLEVEL_WHITELABEL_IMAGE_URL', null),
+        ],
     ],
 
 ];

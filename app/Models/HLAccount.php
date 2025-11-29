@@ -22,6 +22,7 @@ class HLAccount extends Model
         'token_expires_at',
         'integration_id',
         'config_id',
+        'whitelabel_provider_id',
         'is_active',
         'scopes',
         'metadata',

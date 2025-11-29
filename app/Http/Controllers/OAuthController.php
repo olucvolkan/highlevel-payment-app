@@ -84,9 +84,36 @@ class OAuthController extends Controller
                 // The integration can be created manually later
             }
 
+            // Register white-label payment provider in HighLevel marketplace
+            $whitelabelResult = $this->highLevelService->createWhiteLabelProvider($account, [
+                'uniqueName' => config('services.highlevel.whitelabel.unique_name', 'paytr-direct'),
+                'title' => config('services.highlevel.whitelabel.title', 'PayTR'),
+                'provider' => config('services.highlevel.whitelabel.provider', 'paytr'),
+                'description' => config('services.highlevel.whitelabel.description', 'PayTR Payment Gateway for Turkey'),
+                'imageUrl' => config('services.highlevel.whitelabel.image_url', config('app.url') . '/images/paytr-logo.png'),
+            ]);
+
+            if (!isset($whitelabelResult['success']) || !$whitelabelResult['success']) {
+                Log::warning('Failed to register white-label provider', [
+                    'account_id' => $account->id,
+                    'location_id' => $locationId,
+                    'error' => $whitelabelResult['error'] ?? 'Unknown error',
+                ]);
+
+                // Don't fail the OAuth process - white-label registration is optional
+                // The provider can be registered manually later if needed
+            } else {
+                Log::info('White-label provider registered successfully', [
+                    'account_id' => $account->id,
+                    'location_id' => $locationId,
+                    'provider_id' => $whitelabelResult['data']['id'] ?? null,
+                ]);
+            }
+
             $this->userActionLogger->log($account, 'oauth_success', [
                 'location_id' => $locationId,
                 'integration_id' => $integrationResult['_id'] ?? null,
+                'whitelabel_provider_id' => $whitelabelResult['data']['id'] ?? null,
             ]);
 
             // Store location_id in session for later use

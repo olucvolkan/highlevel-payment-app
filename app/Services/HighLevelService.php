@@ -362,6 +362,92 @@ class HighLevelService
     }
 
     /**
+     * Create White-Label Payment Provider in HighLevel.
+     * This registers the provider in the HighLevel marketplace.
+     *
+     * @param HLAccount $account The HighLevel account with valid access token
+     * @param array $data Provider configuration (uniqueName, title, provider, description, imageUrl)
+     * @return array Response from HighLevel API or error details
+     */
+    public function createWhiteLabelProvider(HLAccount $account, array $data): array
+    {
+        try {
+            $payload = [
+                'altId' => $account->location_id,
+                'altType' => 'location',
+                'uniqueName' => $data['uniqueName'] ?? config('services.highlevel.whitelabel.unique_name', 'paytr-direct'),
+                'title' => $data['title'] ?? config('services.highlevel.whitelabel.title', 'PayTR'),
+                'provider' => $data['provider'] ?? config('services.highlevel.whitelabel.provider', 'paytr'),
+                'description' => $data['description'] ?? config('services.highlevel.whitelabel.description', 'PayTR Payment Gateway for Turkey'),
+                'imageUrl' => $data['imageUrl'] ?? config('services.highlevel.whitelabel.image_url', config('app.url') . '/images/paytr-logo.png'),
+            ];
+
+            Log::info('Creating HighLevel white-label provider', [
+                'account_id' => $account->id,
+                'location_id' => $account->location_id,
+                'unique_name' => $payload['uniqueName'],
+                'provider' => $payload['provider'],
+            ]);
+
+            $response = Http::withToken($account->access_token)
+                ->withHeaders([
+                    'Content-Type' => 'application/json',
+                    'Accept' => 'application/json',
+                ])
+                ->post('https://services.leadconnectorhq.com/payments/integrations/provider/whitelabel', $payload);
+
+            if ($response->successful()) {
+                $result = $response->json();
+
+                Log::info('HighLevel white-label provider created successfully', [
+                    'account_id' => $account->id,
+                    'location_id' => $account->location_id,
+                    'provider_id' => $result['id'] ?? null,
+                    'unique_name' => $payload['uniqueName'],
+                ]);
+
+                // Optionally store the provider_id in the account
+                if (isset($result['id'])) {
+                    $account->update(['whitelabel_provider_id' => $result['id']]);
+                }
+
+                return [
+                    'success' => true,
+                    'data' => $result,
+                ];
+            }
+
+            Log::error('HighLevel white-label provider creation failed', [
+                'account_id' => $account->id,
+                'location_id' => $account->location_id,
+                'status' => $response->status(),
+                'response' => $response->json(),
+                'payload' => $payload,
+            ]);
+
+            return [
+                'success' => false,
+                'error' => 'Failed to create white-label provider',
+                'details' => $response->json(),
+                'status' => $response->status(),
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('HighLevel white-label provider creation exception', [
+                'account_id' => $account->id,
+                'location_id' => $account->location_id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
      * Get account by location ID.
      */
     public function getAccountByLocation(string $locationId): ?HLAccount
