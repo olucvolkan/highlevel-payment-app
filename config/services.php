@@ -59,7 +59,9 @@ return [
         'whitelabel' => [
             'unique_name' => env('HIGHLEVEL_WHITELABEL_UNIQUE_NAME', 'paytr-direct'),
             'title' => env('HIGHLEVEL_WHITELABEL_TITLE', 'PayTR'),
-            'provider' => env('HIGHLEVEL_WHITELABEL_PROVIDER', 'paytr'),
+            // Provider must be a valid HighLevel enum value: "nmi" or "authorize-net"
+            // Use "nmi" as base provider for custom white-label integrations
+            'provider' => env('HIGHLEVEL_WHITELABEL_PROVIDER', 'nmi'),
             'description' => env('HIGHLEVEL_WHITELABEL_DESCRIPTION', 'PayTR Payment Gateway for Turkey'),
             'image_url' => env('HIGHLEVEL_WHITELABEL_IMAGE_URL', null),
         ],

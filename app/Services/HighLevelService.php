@@ -335,9 +335,7 @@ class HighLevelService
                 'altType' => 'location',
                 'uniqueName' => $data['uniqueName'] ?? config('services.highlevel.whitelabel.unique_name', 'paytr-direct'),
                 'title' => $data['title'] ?? config('services.highlevel.whitelabel.title', 'PayTR'),
-                'provider' => $data['provider'] ?? [
-                    'PAYTR' => config('services.highlevel.whitelabel.provider', 'paytr'),
-                ],
+                'provider' => $data['provider'] ?? config('services.highlevel.whitelabel.provider', 'nmi'),
                 'description' => $data['description'] ?? config('services.highlevel.whitelabel.description', 'PayTR Payment Gateway for Turkey'),
                 'imageUrl' => $data['imageUrl'] ?? config('services.highlevel.whitelabel.image_url', config('app.url') . '/images/paytr-logo.png'),
             ];
