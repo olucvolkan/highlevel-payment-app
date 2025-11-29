@@ -86,11 +86,12 @@ class OAuthController extends Controller
 
             // Register white-label payment provider in HighLevel marketplace
             $whitelabelResult = $this->highLevelService->createWhiteLabelProvider($account, [
-                'uniqueName' => config('services.highlevel.whitelabel.unique_name', 'paytr-direct'),
-                'title' => config('services.highlevel.whitelabel.title', 'PayTR'),
-                'provider' => config('services.highlevel.whitelabel.provider', 'paytr'),
+                'name' => config('services.highlevel.whitelabel.title', 'PayTR'),
                 'description' => config('services.highlevel.whitelabel.description', 'PayTR Payment Gateway for Turkey'),
+                'paymentsUrl' => config('app.url') . '/payments/page',
+                'queryUrl' => config('app.url') . '/api/payments/query',
                 'imageUrl' => config('services.highlevel.whitelabel.image_url', config('app.url') . '/images/paytr-logo.png'),
+                'supportsSubscriptionSchedule' => true,
             ]);
 
             if (!isset($whitelabelResult['success']) || !$whitelabelResult['success']) {

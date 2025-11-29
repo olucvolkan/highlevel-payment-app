@@ -11,6 +11,8 @@ use GuzzleHttp\Exception\GuzzleException;
 
 class HighLevelService
 {
+    private const API_VERSION = '2021-07-28';
+
     protected string $clientId;
     protected string $clientSecret;
     protected string $oauthUrl;
@@ -51,7 +53,6 @@ class HighLevelService
             Log::info('HighLevel token exchange successful', [
                 'has_access_token' => isset($body['access_token']),
                 'response_keys' => array_keys($body),
-                'full_response' => $body, // Log full response to debug location_id issue
             ]);
 
             return $body;
@@ -161,6 +162,11 @@ class HighLevelService
             ]);
 
             $response = Http::withToken($account->access_token)
+                ->withHeaders([
+                    'Version' => self::API_VERSION,
+                    'Accept' => 'application/json',
+                    'Content-Type' => 'application/json',
+                ])
                 ->post($this->apiUrl . '/payments/custom-provider/integration', $payload);
 
             if ($response->successful()) {
@@ -239,6 +245,11 @@ class HighLevelService
             ]);
 
             $response = Http::withToken($account->access_token)
+                ->withHeaders([
+                    'Version' => self::API_VERSION,
+                    'Accept' => 'application/json',
+                    'Content-Type' => 'application/json',
+                ])
                 ->post($this->apiUrl . '/payments/custom-provider/config', $payload);
 
             if ($response->successful()) {
@@ -297,6 +308,11 @@ class HighLevelService
 
         try {
             $response = Http::withToken($account->access_token)
+                ->withHeaders([
+                    'Version' => self::API_VERSION,
+                    'Accept' => 'application/json',
+                    'Content-Type' => 'application/json',
+                ])
                 ->post($webhookUrl, array_merge($payload, [
                     'locationId' => $account->location_id,
                 ]));
@@ -366,35 +382,36 @@ class HighLevelService
      * This registers the provider in the HighLevel marketplace.
      *
      * @param HLAccount $account The HighLevel account with valid access token
-     * @param array $data Provider configuration (uniqueName, title, provider, description, imageUrl)
+     * @param array $data Provider configuration (name, description, paymentsUrl, queryUrl, imageUrl, supportsSubscriptionSchedule)
      * @return array Response from HighLevel API or error details
      */
     public function createWhiteLabelProvider(HLAccount $account, array $data): array
     {
         try {
             $payload = [
-                'altId' => $account->location_id,
-                'altType' => 'location',
-                'uniqueName' => $data['uniqueName'] ?? config('services.highlevel.whitelabel.unique_name', 'paytr-direct'),
-                'title' => $data['title'] ?? config('services.highlevel.whitelabel.title', 'PayTR'),
-                'provider' => $data['provider'] ?? config('services.highlevel.whitelabel.provider', 'paytr'),
+                'name' => $data['name'] ?? config('services.highlevel.whitelabel.title', 'PayTR'),
                 'description' => $data['description'] ?? config('services.highlevel.whitelabel.description', 'PayTR Payment Gateway for Turkey'),
+                'paymentsUrl' => $data['paymentsUrl'] ?? config('app.url') . '/payments/page',
+                'queryUrl' => $data['queryUrl'] ?? config('app.url') . '/api/payments/query',
                 'imageUrl' => $data['imageUrl'] ?? config('services.highlevel.whitelabel.image_url', config('app.url') . '/images/paytr-logo.png'),
+                'supportsSubscriptionSchedule' => $data['supportsSubscriptionSchedule'] ?? true,
             ];
 
             Log::info('Creating HighLevel white-label provider', [
                 'account_id' => $account->id,
                 'location_id' => $account->location_id,
-                'unique_name' => $payload['uniqueName'],
-                'provider' => $payload['provider'],
+                'name' => $payload['name'],
+                'paymentsUrl' => $payload['paymentsUrl'],
+                'queryUrl' => $payload['queryUrl'],
             ]);
 
             $response = Http::withToken($account->access_token)
                 ->withHeaders([
+                    'Version' => self::API_VERSION,
                     'Content-Type' => 'application/json',
                     'Accept' => 'application/json',
                 ])
-                ->post('https://services.leadconnectorhq.com/payments/integrations/provider/whitelabel', $payload);
+                ->post('https://services.leadconnectorhq.com/payments/custom-provider/provider', $payload);
 
             if ($response->successful()) {
                 $result = $response->json();
@@ -403,7 +420,7 @@ class HighLevelService
                     'account_id' => $account->id,
                     'location_id' => $account->location_id,
                     'provider_id' => $result['id'] ?? null,
-                    'unique_name' => $payload['uniqueName'],
+                    'name' => $payload['name'],
                 ]);
 
                 // Optionally store the provider_id in the account
