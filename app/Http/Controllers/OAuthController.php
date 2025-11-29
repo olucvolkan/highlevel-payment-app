@@ -72,7 +72,7 @@ class OAuthController extends Controller
                 'uniqueName' => config('services.highlevel.whitelabel.unique_name', 'paytr-direct'),
                 'title' => config('services.highlevel.whitelabel.title', 'PayTR'),
                 'provider' => [
-                    'PAYTR' => config('services.highlevel.whitelabel.provider', 'paytr'),
+                    'NMI' => 'nmi',
                 ],
                 'description' => config('services.highlevel.whitelabel.description', 'PayTR Payment Gateway for Turkey'),
                 'imageUrl' => config('services.highlevel.whitelabel.image_url', config('app.url') . '/images/paytr-logo.png'),
