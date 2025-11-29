@@ -67,23 +67,6 @@ class OAuthController extends Controller
                     ->with('error', 'Failed to create account');
             }
 
-            // Create payment integration in HighLevel
-            $integrationResult = $this->highLevelService->createPublicProviderConfig($account, [
-                'name' => 'PayTR Turkey Payments',
-                'description' => 'Accept payments from Turkish customers using PayTR',
-                'imageUrl' => config('app.url') . '/images/paytr-logo.png',
-            ]);
-
-            if (isset($integrationResult['error'])) {
-                Log::error('Failed to create HighLevel integration', [
-                    'account_id' => $account->id,
-                    'error' => $integrationResult,
-                ]);
-
-                // Don't fail the OAuth process, just log the error
-                // The integration can be created manually later
-            }
-
             // Register white-label payment provider in HighLevel marketplace
             $whitelabelResult = $this->highLevelService->createWhiteLabelProvider($account, [
                 'name' => config('services.highlevel.whitelabel.title', 'PayTR'),
@@ -113,7 +96,6 @@ class OAuthController extends Controller
 
             $this->userActionLogger->log($account, 'oauth_success', [
                 'location_id' => $locationId,
-                'integration_id' => $integrationResult['_id'] ?? null,
                 'whitelabel_provider_id' => $whitelabelResult['data']['id'] ?? null,
             ]);
 
