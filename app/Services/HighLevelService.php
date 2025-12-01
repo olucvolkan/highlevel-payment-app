@@ -329,13 +329,24 @@ class HighLevelService
                 throw new \InvalidArgumentException('Access token is required for white-label provider creation');
             }
 
+            // Get and validate provider enum value
+            $provider = $data['provider'] ?? config('services.highlevel.whitelabel.provider', 'nmi');
+
+            // Validate provider is a valid enum value
+            $validProviders = ['nmi', 'authorize-net'];
+            if (!in_array($provider, $validProviders)) {
+                throw new \InvalidArgumentException(
+                    "Invalid provider '{$provider}'. Must be one of: " . implode(', ', $validProviders)
+                );
+            }
+
             // Build payload according to HighLevel white-label provider API specification
             $payload = [
                 'altId' => $account->location_id,
                 'altType' => 'location',
                 'uniqueName' => $data['uniqueName'] ?? config('services.highlevel.whitelabel.unique_name', 'paytr-direct'),
                 'title' => $data['title'] ?? config('services.highlevel.whitelabel.title', 'PayTR'),
-                'provider' => $data['provider'] ?? config('services.highlevel.whitelabel.provider', 'nmi'),
+                'provider' => $provider,
                 'description' => $data['description'] ?? config('services.highlevel.whitelabel.description', 'PayTR Payment Gateway for Turkey'),
                 'imageUrl' => $data['imageUrl'] ?? config('services.highlevel.whitelabel.image_url', config('app.url') . '/images/paytr-logo.png'),
             ];
