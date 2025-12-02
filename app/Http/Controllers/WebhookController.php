@@ -51,7 +51,7 @@ class WebhookController extends Controller
 
             if ($success) {
                 $webhookLog->markAsSuccess(['processed' => true]);
-                
+
                 // PayTR requires "OK" response
                 return response('OK');
             }
@@ -138,7 +138,7 @@ class WebhookController extends Controller
             }
 
             $account = $this->highLevelService->getAccountByLocation($locationId);
-            
+
             if (!$account) {
                 Log::error('Account not found for HighLevel webhook', [
                     'location_id' => $locationId,
@@ -189,7 +189,7 @@ class WebhookController extends Controller
     protected function handleAppInstall(array $data, WebhookLog $webhookLog): Response
     {
         $locationId = $data['location_id'] ?? null;
-        $companyId = $data['company_id'] ?? null;
+        $companyId = $data['companyId'] ?? null;
         $userId = $data['user_id'] ?? null;
 
         if (!$locationId) {

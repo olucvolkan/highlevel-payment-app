@@ -276,8 +276,8 @@ class OAuthController extends Controller
         $account = HLAccount::updateOrCreate(
             ['location_id' => $locationId],
             [
-                'user_id' => $tokenData['user_id'] ?? null,
-                'company_id' => $tokenData['company_id'] ?? null,
+                'user_id' => $tokenData['userId'] ?? null,
+                'company_id' => $tokenData['companyId'] ?? null,
                 'access_token' => $accessToken, // Keep for backward compatibility
                 'refresh_token' => $refreshToken,
                 'company_access_token' => $userType === 'Company' ? $accessToken : null,
