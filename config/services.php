@@ -54,16 +54,14 @@ return [
         'api_url' => env('HIGHLEVEL_API_URL', 'https://backend.leadconnectorhq.com'),
         'oauth_url' => env('HIGHLEVEL_OAUTH_URL', 'https://services.leadconnectorhq.com'),
 
-        // White-label payment provider configuration
-        // This is used to register PayTR as a custom provider in HighLevel marketplace
-        'whitelabel' => [
-            'unique_name' => env('HIGHLEVEL_WHITELABEL_UNIQUE_NAME', 'paytr-direct'),
-            'title' => env('HIGHLEVEL_WHITELABEL_TITLE', 'PayTR'),
-            // Provider must be a valid HighLevel enum value: "nmi" or "authorize-net"
-            // Use "nmi" as base provider for custom white-label integrations
-            'provider' => env('HIGHLEVEL_WHITELABEL_PROVIDER', 'nmi'),
-            'description' => env('HIGHLEVEL_WHITELABEL_DESCRIPTION', 'PayTR Payment Gateway for Turkey'),
-            'image_url' => env('HIGHLEVEL_WHITELABEL_IMAGE_URL', null),
+        // Third-party payment provider configuration
+        // PayTR is registered as a custom third-party provider (not white-label)
+        'provider' => [
+            'name' => env('HIGHLEVEL_PROVIDER_NAME', 'PayTR'),
+            'description' => env('HIGHLEVEL_PROVIDER_DESCRIPTION', 'PayTR Payment Gateway for Turkey'),
+            'image_url' => env('HIGHLEVEL_PROVIDER_IMAGE_URL', null),
+            'query_url' => env('HIGHLEVEL_PROVIDER_QUERY_URL', null), // Backend verification endpoint
+            'payments_url' => env('HIGHLEVEL_PROVIDER_PAYMENTS_URL', null), // Iframe payment page
         ],
     ],
 

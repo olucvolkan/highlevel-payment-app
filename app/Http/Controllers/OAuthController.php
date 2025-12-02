@@ -67,35 +67,35 @@ class OAuthController extends Controller
                     ->with('error', 'Failed to create account');
             }
 
-            // Register white-label payment provider in HighLevel marketplace
-            $whitelabelResult = $this->highLevelService->createWhiteLabelProvider($account, [
-                'uniqueName' => config('services.highlevel.whitelabel.unique_name'),
-                'title' => config('services.highlevel.whitelabel.title'),
-                'provider' => config('services.highlevel.whitelabel.provider'),
-                'description' => config('services.highlevel.whitelabel.description'),
-                'imageUrl' => config('services.highlevel.whitelabel.image_url'),
+            // Register third-party payment provider in HighLevel marketplace
+            $providerResult = $this->highLevelService->createWhiteLabelProvider($account, [
+                'name' => config('services.highlevel.provider.name'),
+                'description' => config('services.highlevel.provider.description'),
+                'imageUrl' => config('services.highlevel.provider.image_url'),
+                'queryUrl' => config('services.highlevel.provider.query_url'),
+                'paymentsUrl' => config('services.highlevel.provider.payments_url'),
             ]);
 
-            if (!isset($whitelabelResult['success']) || !$whitelabelResult['success']) {
-                Log::warning('Failed to register white-label provider', [
+            if (!isset($providerResult['success']) || !$providerResult['success']) {
+                Log::warning('Failed to register third-party payment provider', [
                     'account_id' => $account->id,
                     'location_id' => $locationId,
-                    'error' => $whitelabelResult['error'] ?? 'Unknown error',
+                    'error' => $providerResult['error'] ?? 'Unknown error',
                 ]);
 
-                // Don't fail the OAuth process - white-label registration is optional
+                // Don't fail the OAuth process - provider registration is optional
                 // The provider can be registered manually later if needed
             } else {
-                Log::info('White-label provider registered successfully', [
+                Log::info('Third-party payment provider registered successfully', [
                     'account_id' => $account->id,
                     'location_id' => $locationId,
-                    'provider_id' => $whitelabelResult['data']['id'] ?? null,
+                    'provider_id' => $providerResult['data']['id'] ?? null,
                 ]);
             }
 
             $this->userActionLogger->log($account, 'oauth_success', [
                 'location_id' => $locationId,
-                'whitelabel_provider_id' => $whitelabelResult['data']['id'] ?? null,
+                'provider_id' => $providerResult['data']['id'] ?? null,
             ]);
 
             // Store location_id in session for later use

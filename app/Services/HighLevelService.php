@@ -338,26 +338,24 @@ class HighLevelService
                 throw new \InvalidArgumentException('Access token is required for white-label provider creation');
             }
 
-            // Build payload according to HighLevel white-label provider API specification
+            // Build payload according to HighLevel third-party provider API specification
             $payload = [
-                'altId' => $account->location_id,
-                'altType' => 'location',
-                'uniqueName' => $data['uniqueName'] ?? config('services.highlevel.whitelabel.unique_name', 'paytr-direct'),
-                'title' => $data['title'] ?? config('services.highlevel.whitelabel.title', 'PayTR'),
-                'provider' => 'nmi',
-                'description' => $data['description'] ?? config('services.highlevel.whitelabel.description', 'PayTR Payment Gateway for Turkey'),
-                'imageUrl' => $data['imageUrl'] ?? config('services.highlevel.whitelabel.image_url', config('app.url') . '/images/paytr-logo.png'),
+                'locationId' => $account->location_id,
+                'name' => $data['name'] ?? config('services.highlevel.provider.name', 'PayTR'),
+                'description' => $data['description'] ?? config('services.highlevel.provider.description', 'PayTR Payment Gateway for Turkey'),
+                'imageUrl' => $data['imageUrl'] ?? config('services.highlevel.provider.image_url', config('app.url') . '/images/paytr-logo.png'),
+                'queryUrl' => $data['queryUrl'] ?? config('services.highlevel.provider.query_url', config('app.url') . '/api/payments/query'),
+                'paymentsUrl' => $data['paymentsUrl'] ?? config('services.highlevel.provider.payments_url', config('app.url') . '/payments/page'),
             ];
 
-            Log::info('Creating HighLevel white-label provider', [
+            Log::info('Creating HighLevel third-party payment provider', [
                 'account_id' => $account->id,
                 'location_id' => $account->location_id,
-                'unique_name' => $payload['uniqueName'],
-                'title' => $payload['title'],
-                'alt_type' => $payload['altType'],
-                'provider' => $payload['provider'],
+                'provider_name' => $payload['name'],
+                'query_url' => $payload['queryUrl'],
+                'payments_url' => $payload['paymentsUrl'],
                 'full_payload' => $payload,
-                'endpoint' => 'https://services.leadconnectorhq.com/payments/integrations/provider/whitelabel',
+                'endpoint' => 'https://services.leadconnectorhq.com/payments/custom-provider/provider',
                 'method' => 'POST',
             ]);
 
@@ -367,16 +365,16 @@ class HighLevelService
                     'Content-Type' => 'application/json',
                     'Accept' => 'application/json',
                 ])
-                ->post('https://services.leadconnectorhq.com/payments/integrations/provider/whitelabel', $payload);
+                ->post('https://services.leadconnectorhq.com/payments/custom-provider/provider', $payload);
 
             if ($response->successful()) {
                 $result = $response->json();
 
-                Log::info('HighLevel white-label provider created successfully', [
+                Log::info('HighLevel third-party payment provider created successfully', [
                     'account_id' => $account->id,
                     'location_id' => $account->location_id,
                     'provider_id' => $result['id'] ?? $result['_id'] ?? null,
-                    'unique_name' => $payload['uniqueName'],
+                    'provider_name' => $payload['name'],
                     'status_code' => $response->status(),
                     'response_body' => $result,
                     'response_headers' => $response->headers(),
@@ -393,14 +391,14 @@ class HighLevelService
                 ];
             }
 
-            Log::error('HighLevel white-label provider creation failed', [
+            Log::error('HighLevel third-party payment provider creation failed', [
                 'account_id' => $account->id,
                 'location_id' => $account->location_id,
                 'status_code' => $response->status(),
                 'response_body' => $response->json(),
                 'response_headers' => $response->headers(),
                 'request_payload' => $payload,
-                'request_endpoint' => 'https://services.leadconnectorhq.com/payments/integrations/provider/whitelabel',
+                'request_endpoint' => 'https://services.leadconnectorhq.com/payments/custom-provider/provider',
                 'error_message' => $response->json()['message'] ?? $response->json()['error'] ?? 'No error message provided',
             ]);
 
