@@ -174,6 +174,9 @@ class HighLevelService
                 'location_id' => $account->location_id,
                 'has_test_mode' => isset($config['testMode']),
                 'has_live_mode' => isset($config['liveMode']),
+                'full_payload' => $payload,
+                'endpoint' => $this->apiUrl . '/payments/custom-provider/config',
+                'method' => 'POST',
             ]);
 
             $response = Http::withToken($account->access_token)
@@ -190,7 +193,9 @@ class HighLevelService
                 Log::info('HighLevel config created successfully', [
                     'account_id' => $account->id,
                     'config_id' => $result['_id'] ?? null,
-                    'response' => $result,
+                    'status_code' => $response->status(),
+                    'response_body' => $result,
+                    'response_headers' => $response->headers(),
                 ]);
 
                 $account->update(['config_id' => $result['_id'] ?? null]);
@@ -200,8 +205,12 @@ class HighLevelService
 
             Log::error('HighLevel config creation failed', [
                 'account_id' => $account->id,
-                'status' => $response->status(),
-                'response' => $response->json(),
+                'status_code' => $response->status(),
+                'response_body' => $response->json(),
+                'response_headers' => $response->headers(),
+                'request_payload' => $payload,
+                'request_endpoint' => $this->apiUrl . '/payments/custom-provider/config',
+                'error_message' => $response->json()['message'] ?? $response->json()['error'] ?? 'No error message provided',
             ]);
 
             return [
@@ -357,6 +366,10 @@ class HighLevelService
                 'unique_name' => $payload['uniqueName'],
                 'title' => $payload['title'],
                 'alt_type' => $payload['altType'],
+                'provider' => $payload['provider'],
+                'full_payload' => $payload,
+                'endpoint' => 'https://services.leadconnectorhq.com/payments/integrations/provider/whitelabel',
+                'method' => 'POST',
             ]);
 
             $response = Http::withToken($account->access_token)
@@ -375,7 +388,9 @@ class HighLevelService
                     'location_id' => $account->location_id,
                     'provider_id' => $result['id'] ?? $result['_id'] ?? null,
                     'unique_name' => $payload['uniqueName'],
-                    'response' => $result,
+                    'status_code' => $response->status(),
+                    'response_body' => $result,
+                    'response_headers' => $response->headers(),
                 ]);
 
                 // Store the provider_id in the account (HighLevel may return 'id' or '_id')
@@ -392,9 +407,12 @@ class HighLevelService
             Log::error('HighLevel white-label provider creation failed', [
                 'account_id' => $account->id,
                 'location_id' => $account->location_id,
-                'status' => $response->status(),
-                'response' => $response->json(),
-                'payload' => $payload,
+                'status_code' => $response->status(),
+                'response_body' => $response->json(),
+                'response_headers' => $response->headers(),
+                'request_payload' => $payload,
+                'request_endpoint' => 'https://services.leadconnectorhq.com/payments/integrations/provider/whitelabel',
+                'error_message' => $response->json()['message'] ?? $response->json()['error'] ?? 'No error message provided',
             ]);
 
             return [
