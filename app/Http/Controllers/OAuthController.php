@@ -68,7 +68,7 @@ class OAuthController extends Controller
             }
 
             // Register third-party payment provider in HighLevel marketplace
-            $providerResult = $this->highLevelService->createWhiteLabelProvider($account, [
+            $providerResult = $this->highLevelService->createThirdPartyProvider($account, [
                 'name' => config('services.highlevel.provider.name'),
                 'description' => config('services.highlevel.provider.description'),
                 'imageUrl' => config('services.highlevel.provider.image_url'),

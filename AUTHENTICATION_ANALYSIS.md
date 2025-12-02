@@ -253,7 +253,7 @@ $response = Http::withToken($account->access_token)
 **Update Method Name:**
 ```php
 // Change from:
-public function createWhiteLabelProvider(HLAccount $account, array $config): array
+public function createThirdPartyProvider(HLAccount $account, array $config): array
 
 // To:
 public function createPublicProviderConfig(HLAccount $account, array $config): array
@@ -277,7 +277,7 @@ $payload = [
 
 **Current:**
 ```php
-$whitelabelResult = $this->highLevelService->createWhiteLabelProvider($account, [
+$whitelabelResult = $this->highLevelService->createThirdPartyProvider($account, [
     'uniqueName' => config('services.highlevel.whitelabel.unique_name'),
     'title' => config('services.highlevel.whitelabel.title'),
     'provider' => config('services.highlevel.whitelabel.provider'),

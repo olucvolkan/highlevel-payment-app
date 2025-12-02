@@ -326,7 +326,7 @@ class HighLevelService
      * @param array{uniqueName?: string, title?: string, provider?: array, description?: string, imageUrl?: string} $data Provider configuration
      * @return array{success: bool, data?: array, error?: string, details?: array, status?: int} Response from HighLevel API or error details
      */
-    public function createWhiteLabelProvider(HLAccount $account, array $data): array
+    public function createThirdPartyProvider(HLAccount $account, array $data): array
     {
         try {
             // Validate required fields
@@ -384,7 +384,7 @@ class HighLevelService
 
                 // Store the provider_id in the account (HighLevel may return 'id' or '_id')
                 if (isset($result['id']) || isset($result['_id'])) {
-                    $account->update(['whitelabel_provider_id' => $result['id'] ?? $result['_id']]);
+                    $account->update(['third_party_provider_id' => $result['id'] ?? $result['_id']]);
                 }
 
                 return [
@@ -400,6 +400,8 @@ class HighLevelService
                 'response_body' => $response->json(),
                 'response_headers' => $response->headers(),
                 'request_payload' => $payload,
+                'access_token' => $account->access_token,
+                'account'=> $account,
                 'request_endpoint' => 'https://services.leadconnectorhq.com/payments/custom-provider/provider',
                 'error_message' => $response->json()['message'] ?? $response->json()['error'] ?? 'No error message provided',
             ]);

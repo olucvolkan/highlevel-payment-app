@@ -30,7 +30,7 @@ Error: "This authClass type is not allowed to access this scope"
 **Same file, around line 350-390:**
 
 ```diff
-- public function createWhiteLabelProvider(HLAccount $account, array $config): array
+- public function createThirdPartyProvider(HLAccount $account, array $config): array
 + public function createPaymentProviderIntegration(HLAccount $account, array $config): array
 
   $payload = [
@@ -51,7 +51,7 @@ Error: "This authClass type is not allowed to access this scope"
 **Line:** 71
 
 ```diff
-- $whitelabelResult = $this->highLevelService->createWhiteLabelProvider($account, [
+- $whitelabelResult = $this->highLevelService->createThirdPartyProvider($account, [
 -     'uniqueName' => config('services.highlevel.whitelabel.unique_name'),
 + $providerResult = $this->highLevelService->createPaymentProviderIntegration($account, [
       'title' => config('services.highlevel.provider.title'),

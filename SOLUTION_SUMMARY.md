@@ -65,7 +65,7 @@ This ensures your app appears correctly in the marketplace and on Payments > Int
 
 **Change method name from:**
 ```php
-public function createWhiteLabelProvider(HLAccount $account, array $config): array
+public function createThirdPartyProvider(HLAccount $account, array $config): array
 ```
 
 **To:**
@@ -96,7 +96,7 @@ $payload = [
 
 **Change from:**
 ```php
-$whitelabelResult = $this->highLevelService->createWhiteLabelProvider($account, [
+$whitelabelResult = $this->highLevelService->createThirdPartyProvider($account, [
     'uniqueName' => config('services.highlevel.whitelabel.unique_name'),
     'title' => config('services.highlevel.whitelabel.title'),
     'provider' => config('services.highlevel.whitelabel.provider'),
