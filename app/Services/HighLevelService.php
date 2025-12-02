@@ -357,6 +357,8 @@ class HighLevelService
                 'full_payload' => $payload,
                 'endpoint' => 'https://services.leadconnectorhq.com/payments/custom-provider/provider',
                 'method' => 'POST',
+                'access_token' => $account->access_token,
+                'account'=> $account
             ]);
 
             $response = Http::withToken($account->access_token)
