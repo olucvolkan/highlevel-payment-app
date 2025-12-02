@@ -67,7 +67,36 @@ class OAuthController extends Controller
                     ->with('error', 'Failed to create account');
             }
 
+            // IMPORTANT: Exchange Company token for Location token before creating provider
+            // The createThirdPartyProvider endpoint requires a Location token
+            if ($account->needsLocationTokenExchange()) {
+                Log::info('Exchanging Company token for Location token', [
+                    'account_id' => $account->id,
+                    'location_id' => $locationId,
+                ]);
+
+                $exchangeResult = $this->highLevelService->exchangeCompanyTokenForLocation($account, $locationId);
+
+                if (isset($exchangeResult['error'])) {
+                    Log::error('Token exchange failed during OAuth', [
+                        'account_id' => $account->id,
+                        'location_id' => $locationId,
+                        'error' => $exchangeResult['error'],
+                    ]);
+
+                    // Continue anyway - the service will attempt exchange during provider creation
+                    // This is a fallback to ensure the OAuth flow doesn't fail completely
+                } else {
+                    Log::info('Token exchange successful during OAuth', [
+                        'account_id' => $account->id,
+                        'location_id' => $locationId,
+                        'token_type' => $account->fresh()->token_type,
+                    ]);
+                }
+            }
+
             // Register third-party payment provider in HighLevel marketplace
+            // This will now use the Location token
             $providerResult = $this->highLevelService->createThirdPartyProvider($account, [
                 'name' => config('services.highlevel.provider.name'),
                 'description' => config('services.highlevel.provider.description'),
@@ -228,25 +257,45 @@ class OAuthController extends Controller
         $refreshToken = $tokenData['refresh_token'] ?? null;
         $expiresIn = $tokenData['expires_in'] ?? 3600;
         $locationId = $tokenData['locationId'] ?? null;
+        $userType = $tokenData['userType'] ?? 'Company';
 
         if (!$locationId) {
             Log::error('No location ID available in OAuth response', $tokenData);
             return null;
         }
 
+        Log::info('Creating/updating HL account', [
+            'location_id' => $locationId,
+            'user_type' => $userType,
+            'has_refresh_token' => !empty($refreshToken),
+            'expires_in' => $expiresIn,
+        ]);
+
         // Create or update account
+        // Store the token in both access_token (for backward compatibility) and the specific token field
         $account = HLAccount::updateOrCreate(
             ['location_id' => $locationId],
             [
                 'user_id' => $tokenData['user_id'] ?? null,
                 'company_id' => $tokenData['company_id'] ?? null,
-                'access_token' => $accessToken,
+                'access_token' => $accessToken, // Keep for backward compatibility
                 'refresh_token' => $refreshToken,
+                'company_access_token' => $userType === 'Company' ? $accessToken : null,
+                'location_access_token' => $userType === 'Location' ? $accessToken : null,
+                'location_refresh_token' => $userType === 'Location' ? $refreshToken : null,
+                'token_type' => $userType,
                 'token_expires_at' => now()->addSeconds($expiresIn),
                 'scopes' => $tokenData['scope'] ?? null,
                 'is_active' => true,
             ]
         );
+
+        Log::info('HL account created/updated', [
+            'account_id' => $account->id,
+            'location_id' => $locationId,
+            'token_type' => $account->token_type,
+            'needs_exchange' => $account->needsLocationTokenExchange(),
+        ]);
 
         return $account;
     }

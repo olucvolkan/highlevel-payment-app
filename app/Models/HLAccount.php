@@ -20,6 +20,11 @@ class HLAccount extends Model
         'access_token',
         'refresh_token',
         'token_expires_at',
+        'company_access_token',
+        'location_access_token',
+        'location_refresh_token',
+        'token_type',
+        'third_party_provider_id',
         'integration_id',
         'config_id',
         'whitelabel_provider_id',
@@ -48,6 +53,9 @@ class HLAccount extends Model
     protected $hidden = [
         'access_token',
         'refresh_token',
+        'company_access_token',
+        'location_access_token',
+        'location_refresh_token',
         'paytr_merchant_key',
         'paytr_merchant_salt',
     ];
@@ -149,5 +157,67 @@ class HLAccount extends Model
             'paytr_configured' => true,
             'paytr_configured_at' => now(),
         ]);
+    }
+
+    /**
+     * Get the appropriate token for location-specific operations.
+     * Returns the location access token if available.
+     *
+     * @return string|null
+     */
+    public function getLocationAccessToken(): ?string
+    {
+        return $this->location_access_token;
+    }
+
+    /**
+     * Check if the stored token is a Company token.
+     *
+     * @return bool
+     */
+    public function isCompanyToken(): bool
+    {
+        return $this->token_type === 'Company';
+    }
+
+    /**
+     * Check if the stored token is a Location token.
+     *
+     * @return bool
+     */
+    public function isLocationToken(): bool
+    {
+        return $this->token_type === 'Location';
+    }
+
+    /**
+     * Check if location token needs to be obtained via exchange.
+     *
+     * @return bool
+     */
+    public function needsLocationTokenExchange(): bool
+    {
+        return empty($this->location_access_token) && !empty($this->access_token);
+    }
+
+    /**
+     * Get the best available access token for the given context.
+     * Prefers location token for location-specific operations.
+     *
+     * @param string $context 'location' or 'company'
+     * @return string|null
+     */
+    public function getBestAccessToken(string $context = 'location'): ?string
+    {
+        if ($context === 'location' && $this->location_access_token) {
+            return $this->location_access_token;
+        }
+
+        if ($context === 'company' && $this->company_access_token) {
+            return $this->company_access_token;
+        }
+
+        // Fallback to the generic access_token
+        return $this->access_token;
     }
 }

@@ -77,6 +77,105 @@ class HighLevelService
         }
     }
 
+    /**
+     * Exchange Company token for Location token.
+     * Required for accessing location-specific endpoints like creating payment providers.
+     *
+     * HighLevel uses a hierarchical token system:
+     * - Company tokens: Access company-level resources
+     * - Location tokens: Access location-specific resources (required for custom payment providers)
+     *
+     * @param HLAccount $account Account with company access token
+     * @param string $locationId Target location ID
+     * @return array Token response or error details
+     */
+    public function exchangeCompanyTokenForLocation(HLAccount $account, string $locationId): array
+    {
+        try {
+            if (!$account->access_token) {
+                throw new \InvalidArgumentException('Access token is required for token exchange');
+            }
+
+            if (!$account->company_id) {
+                throw new \InvalidArgumentException('Company ID is required for token exchange');
+            }
+
+            Log::info('Exchanging Company token for Location token', [
+                'account_id' => $account->id,
+                'company_id' => $account->company_id,
+                'location_id' => $locationId,
+                'current_token_type' => $account->token_type ?? 'Unknown',
+            ]);
+
+            $client = new Client();
+
+            $headers = [
+                'Accept' => 'application/json',
+                'Content-Type' => 'application/x-www-form-urlencoded',
+                'Authorization' => 'Bearer ' . $account->access_token,
+            ];
+
+            $options = [
+                'form_params' => [
+                    'companyId' => $account->company_id,
+                    'locationId' => $locationId,
+                ],
+                'headers' => $headers,
+            ];
+
+            $response = $client->post($this->oauthUrl . '/oauth/locationToken', $options);
+            $data = json_decode($response->getBody()->getContents(), true);
+
+            Log::info('Location token exchange successful', [
+                'account_id' => $account->id,
+                'location_id' => $locationId,
+                'token_type' => $data['userType'] ?? 'Unknown',
+                'expires_in' => $data['expires_in'] ?? null,
+                'has_refresh_token' => isset($data['refresh_token']),
+            ]);
+
+            // Store the original company token if not already stored
+            if (!$account->company_access_token) {
+                $companyToken = $account->access_token;
+            } else {
+                $companyToken = $account->company_access_token;
+            }
+
+            // Update account with location token
+            $account->update([
+                'company_access_token' => $companyToken,
+                'location_access_token' => $data['access_token'],
+                'location_refresh_token' => $data['refresh_token'] ?? null,
+                'token_type' => 'Location',
+                'token_expires_at' => now()->addSeconds($data['expires_in'] ?? 3600),
+            ]);
+
+            return $data;
+
+        } catch (GuzzleException $e) {
+            Log::error('Location token exchange failed', [
+                'account_id' => $account->id ?? null,
+                'location_id' => $locationId,
+                'error' => $e->getMessage(),
+                'code' => $e->getCode(),
+            ]);
+
+            return [
+                'error' => 'Token exchange failed: ' . $e->getMessage(),
+                'status' => $e->getCode(),
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Location token exchange exception', [
+                'error' => $e->getMessage(),
+                'account_id' => $account->id ?? null,
+                'location_id' => $locationId,
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return ['error' => $e->getMessage()];
+        }
+    }
 
     /**
      * Refresh access token.
@@ -357,11 +456,42 @@ class HighLevelService
                 'full_payload' => $payload,
                 'endpoint' => 'https://services.leadconnectorhq.com/payments/custom-provider/provider',
                 'method' => 'POST',
-                'access_token' => $account->access_token,
-                'account'=> $account
+                'current_token_type' => $account->token_type ?? 'Unknown',
             ]);
 
-            $response = Http::withToken($account->access_token)
+            // CRITICAL: This endpoint requires a Location token, not a Company token
+            // If we only have a Company token, exchange it for a Location token first
+            $token = $account->location_access_token;
+
+            if (!$token) {
+                Log::info('No location token found, attempting token exchange', [
+                    'account_id' => $account->id,
+                    'location_id' => $account->location_id,
+                    'has_company_token' => !empty($account->access_token),
+                ]);
+
+                $exchangeResult = $this->exchangeCompanyTokenForLocation($account, $account->location_id);
+
+                if (isset($exchangeResult['error'])) {
+                    throw new \Exception('Failed to exchange Company token for Location token: ' . $exchangeResult['error']);
+                }
+
+                // Reload the account to get the updated token
+                $account->refresh();
+                $token = $account->location_access_token;
+            }
+
+            if (!$token) {
+                throw new \Exception('No valid access token available after exchange attempt');
+            }
+
+            Log::info('Using location token for provider creation', [
+                'account_id' => $account->id,
+                'location_id' => $account->location_id,
+                'token_type' => $account->token_type,
+            ]);
+
+            $response = Http::withToken($token)
                 ->withHeaders([
                     'Version' => self::API_VERSION,
                     'Content-Type' => 'application/json',
