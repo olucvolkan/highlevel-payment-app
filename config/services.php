@@ -62,6 +62,7 @@ return [
             'image_url' => env('HIGHLEVEL_PROVIDER_IMAGE_URL', null),
             'query_url' => env('HIGHLEVEL_PROVIDER_QUERY_URL', null), // Backend verification endpoint
             'payments_url' => env('HIGHLEVEL_PROVIDER_PAYMENTS_URL', null), // Iframe payment page
+            'supports_subscription' => env('HIGHLEVEL_PROVIDER_SUPPORTS_SUBSCRIPTION', true), // Supports recurring payments
         ],
     ],
 

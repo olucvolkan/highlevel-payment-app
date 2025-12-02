@@ -438,13 +438,14 @@ class HighLevelService
             }
 
             // Build payload according to HighLevel third-party provider API specification
+            // NOTE: locationId should be in query parameters, not in the body
             $payload = [
-                'locationId' => $account->location_id,
                 'name' => $data['name'] ?? config('services.highlevel.provider.name', 'PayTR'),
                 'description' => $data['description'] ?? config('services.highlevel.provider.description', 'PayTR Payment Gateway for Turkey'),
                 'imageUrl' => $data['imageUrl'] ?? config('services.highlevel.provider.image_url', config('app.url') . '/images/paytr-logo.png'),
                 'queryUrl' => $data['queryUrl'] ?? config('services.highlevel.provider.query_url', config('app.url') . '/api/payments/query'),
                 'paymentsUrl' => $data['paymentsUrl'] ?? config('services.highlevel.provider.payments_url', config('app.url') . '/payments/page'),
+                'supportsSubscriptionSchedule' => $data['supportsSubscriptionSchedule'] ?? config('services.highlevel.provider.supports_subscription', true),
             ];
 
             Log::info('Creating HighLevel third-party payment provider', [
@@ -453,8 +454,9 @@ class HighLevelService
                 'provider_name' => $payload['name'],
                 'query_url' => $payload['queryUrl'],
                 'payments_url' => $payload['paymentsUrl'],
+                'supports_subscription' => $payload['supportsSubscriptionSchedule'],
                 'full_payload' => $payload,
-                'endpoint' => 'https://services.leadconnectorhq.com/payments/custom-provider/provider',
+                'endpoint' => 'https://services.leadconnectorhq.com/payments/custom-provider/provider?locationId=' . $account->location_id,
                 'method' => 'POST',
                 'current_token_type' => $account->token_type ?? 'Unknown',
             ]);
@@ -491,13 +493,18 @@ class HighLevelService
                 'token_type' => $account->token_type,
             ]);
 
+            // Build the URL with locationId as query parameter
+            $url = 'https://services.leadconnectorhq.com/payments/custom-provider/provider?' . http_build_query([
+                'locationId' => $account->location_id,
+            ]);
+
             $response = Http::withToken($token)
                 ->withHeaders([
                     'Version' => self::API_VERSION,
                     'Content-Type' => 'application/json',
                     'Accept' => 'application/json',
                 ])
-                ->post('https://services.leadconnectorhq.com/payments/custom-provider/provider', $payload);
+                ->post($url, $payload);
 
             if ($response->successful()) {
                 $result = $response->json();
@@ -532,7 +539,7 @@ class HighLevelService
                 'request_payload' => $payload,
                 'access_token' => $account->access_token,
                 'account'=> $account,
-                'request_endpoint' => 'https://services.leadconnectorhq.com/payments/custom-provider/provider',
+                'request_endpoint' => $url,
                 'error_message' => $response->json()['message'] ?? $response->json()['error'] ?? 'No error message provided',
             ]);
 
