@@ -275,9 +275,38 @@ class HighLevelService
                 'locationId' => $account->location_id,
             ]);
 
+            // IMPORTANT: /connect endpoint requires Location token, NOT Company token
+            // If we only have Company token, exchange it first
+            $token = $account->location_access_token ?? $account->access_token;
+
+            if (!$account->location_access_token && $account->company_id) {
+                Log::info('No location token found, attempting token exchange', [
+                    'account_id' => $account->id,
+                    'location_id' => $account->location_id,
+                    'token_type' => $account->token_type ?? 'Unknown',
+                ]);
+
+                $exchangeResult = $this->exchangeCompanyTokenForLocation($account, $account->location_id);
+
+                if (isset($exchangeResult['error'])) {
+                    Log::error('Token exchange failed before config creation', [
+                        'error' => $exchangeResult['error'],
+                    ]);
+                    return [
+                        'error' => 'Token exchange failed: ' . $exchangeResult['error'],
+                    ];
+                }
+
+                // Reload account to get new token
+                $account->refresh();
+                $token = $account->location_access_token;
+            }
+
             Log::info('Creating HighLevel config via /connect endpoint', [
                 'account_id' => $account->id,
                 'location_id' => $account->location_id,
+                'token_type' => $account->token_type ?? 'Unknown',
+                'using_location_token' => !empty($account->location_access_token),
                 'has_test_mode' => isset($payload['test']),
                 'has_live_mode' => isset($payload['live']),
                 'payload_keys' => array_keys($payload),
@@ -285,7 +314,7 @@ class HighLevelService
                 'method' => 'POST',
             ]);
 
-            $response = Http::withToken($account->access_token)
+            $response = Http::withToken($token)
                 ->withHeaders([
                     'Version' => self::API_VERSION,
                     'Accept' => 'application/json',
