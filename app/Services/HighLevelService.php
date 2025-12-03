@@ -242,6 +242,8 @@ class HighLevelService
      * Connect Config (test/live mode credentials).
      * This should be called after the user configures PayTR credentials.
      *
+     * IMPORTANT: Endpoint is /payments/custom-provider/connect (NOT /config)
+     *
      * @param HLAccount $account
      * @param array $config Should contain 'testMode' and/or 'liveMode' keys with apiKey and publishableKey
      * @return array
@@ -249,32 +251,37 @@ class HighLevelService
     public function connectConfig(HLAccount $account, array $config): array
     {
         try {
-            $payload = [
-                'locationId' => $account->location_id,
-            ];
+            // Build payload according to HighLevel API spec
+            // Note: locationId is sent as query parameter, NOT in body
+            $payload = [];
 
             // Support both test and live mode configuration in a single call
             if (isset($config['testMode'])) {
-                $payload['testMode'] = [
+                $payload['test'] = [
                     'apiKey' => $config['testMode']['apiKey'],
                     'publishableKey' => $config['testMode']['publishableKey'],
                 ];
             }
 
             if (isset($config['liveMode'])) {
-                $payload['liveMode'] = [
+                $payload['live'] = [
                     'apiKey' => $config['liveMode']['apiKey'],
                     'publishableKey' => $config['liveMode']['publishableKey'],
                 ];
             }
 
-            Log::info('Creating HighLevel config', [
+            // Build URL with locationId as query parameter
+            $url = $this->apiUrl . '/payments/custom-provider/connect?' . http_build_query([
+                'locationId' => $account->location_id,
+            ]);
+
+            Log::info('Creating HighLevel config via /connect endpoint', [
                 'account_id' => $account->id,
                 'location_id' => $account->location_id,
-                'has_test_mode' => isset($config['testMode']),
-                'has_live_mode' => isset($config['liveMode']),
-                'full_payload' => $payload,
-                'endpoint' => $this->apiUrl . '/payments/custom-provider/config',
+                'has_test_mode' => isset($payload['test']),
+                'has_live_mode' => isset($payload['live']),
+                'payload_keys' => array_keys($payload),
+                'full_url' => $url,
                 'method' => 'POST',
             ]);
 
@@ -284,7 +291,7 @@ class HighLevelService
                     'Accept' => 'application/json',
                     'Content-Type' => 'application/json',
                 ])
-                ->post($this->apiUrl . '/payments/custom-provider/config', $payload);
+                ->post($url, $payload);
 
             if ($response->successful()) {
                 $result = $response->json();
@@ -308,7 +315,7 @@ class HighLevelService
                 'response_body' => $response->json(),
                 'response_headers' => $response->headers(),
                 'request_payload' => $payload,
-                'request_endpoint' => $this->apiUrl . '/payments/custom-provider/config',
+                'request_url' => $url,
                 'error_message' => $response->json()['message'] ?? $response->json()['error'] ?? 'No error message provided',
             ]);
 

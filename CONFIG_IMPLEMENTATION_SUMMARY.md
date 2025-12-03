@@ -319,7 +319,7 @@ After successful testing:
 ## Configuration Values
 
 **HighLevel API URLs**:
-- Config endpoint: `https://services.leadconnectorhq.com/payments/custom-provider/config`
+- Config endpoint: `https://services.leadconnectorhq.com/payments/custom-provider/connect` ⚠️ (NOT /config!)
 - Provider endpoint: `https://services.leadconnectorhq.com/payments/custom-provider/provider`
 
 **Required in .env**:
