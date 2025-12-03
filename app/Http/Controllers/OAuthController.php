@@ -67,33 +67,14 @@ class OAuthController extends Controller
                     ->with('error', 'Failed to create account');
             }
 
-            // IMPORTANT: Exchange Company token for Location token before creating provider
-            // The createThirdPartyProvider endpoint requires a Location token
-            if ($account->needsLocationTokenExchange()) {
-                Log::info('Exchanging Company token for Location token', [
-                    'account_id' => $account->id,
-                    'location_id' => $locationId,
-                ]);
-
-                $exchangeResult = $this->highLevelService->exchangeCompanyTokenForLocation($account, $locationId);
-
-                if (isset($exchangeResult['error'])) {
-                    Log::error('Token exchange failed during OAuth', [
-                        'account_id' => $account->id,
-                        'location_id' => $locationId,
-                        'error' => $exchangeResult['error'],
-                    ]);
-
-                    // Continue anyway - the service will attempt exchange during provider creation
-                    // This is a fallback to ensure the OAuth flow doesn't fail completely
-                } else {
-                    Log::info('Token exchange successful during OAuth', [
-                        'account_id' => $account->id,
-                        'location_id' => $locationId,
-                        'token_type' => $account->fresh()->token_type,
-                    ]);
-                }
-            }
+            // Since we now request Location token directly via user_type='Location',
+            // we should already have the correct token. No exchange needed.
+            Log::info('OAuth callback completed with token', [
+                'account_id' => $account->id,
+                'location_id' => $locationId,
+                'token_type' => $account->token_type,
+                'has_location_token' => !empty($account->location_access_token),
+            ]);
 
             // Register third-party payment provider in HighLevel marketplace
             // This will now use the Location token

@@ -26,7 +26,7 @@ class HighLevelService
         $this->apiUrl = config('services.highlevel.api_url');
     }
 
-    public function exchangeCodeForToken(string $code, string $userType = 'Company'): array
+    public function exchangeCodeForToken(string $code, string $userType = 'Location'): array
     {
         try {
             $client = new Client();
@@ -51,6 +51,8 @@ class HighLevelService
             $body = json_decode($response->getBody()->getContents(), true);
 
             Log::info('HighLevel token exchange successful', [
+                'requested_user_type' => $userType,
+                'response_user_type' => $body['userType'] ?? 'Unknown',
                 'has_access_token' => isset($body['access_token']),
                 'response_keys' => array_keys($body),
             ]);
