@@ -67,9 +67,39 @@ class OAuthController extends Controller
                     ->with('error', 'Failed to create account');
             }
 
-            // Since we now request Location token directly via user_type='Location',
-            // we should already have the correct token. No exchange needed.
-            Log::info('OAuth callback completed with token', [
+            // IMPORTANT: Even though we request user_type='Location', HighLevel may still return Company token
+            // We need to exchange Company token for Location token if needed
+            if ($account->needsLocationTokenExchange()) {
+                Log::info('Exchanging Company token for Location token', [
+                    'account_id' => $account->id,
+                    'location_id' => $locationId,
+                    'token_type' => $account->token_type,
+                ]);
+
+                $exchangeResult = $this->highLevelService->exchangeCompanyTokenForLocation($account, $locationId);
+
+                if (isset($exchangeResult['error'])) {
+                    Log::error('Token exchange failed during OAuth', [
+                        'account_id' => $account->id,
+                        'location_id' => $locationId,
+                        'error' => $exchangeResult['error'],
+                    ]);
+
+                    // This is CRITICAL - without Location token, provider creation will fail
+                    return redirect()->route('oauth.error')
+                        ->with('error', 'Failed to obtain Location token: ' . $exchangeResult['error']);
+                }
+
+                Log::info('Token exchange successful during OAuth', [
+                    'account_id' => $account->id,
+                    'location_id' => $locationId,
+                ]);
+
+                // Refresh account to get updated token
+                $account->refresh();
+            }
+
+            Log::info('OAuth callback completed with Location token', [
                 'account_id' => $account->id,
                 'location_id' => $locationId,
                 'token_type' => $account->token_type,

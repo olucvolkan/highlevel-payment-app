@@ -241,16 +241,7 @@ class HighLevelService
         }
     }
 
-    /**
-     * Connect Config (test/live mode credentials).
-     * This should be called after the user configures PayTR credentials.
-     *
-     * IMPORTANT: Endpoint is /payments/custom-provider/connect (NOT /config)
-     *
-     * @param HLAccount $account
-     * @param array $config Should contain 'testMode' and/or 'liveMode' keys with apiKey and publishableKey
-     * @return array
-     */
+
     public function connectConfig(HLAccount $account, array $config): array
     {
         try {
@@ -278,15 +269,23 @@ class HighLevelService
                 'locationId' => $account->location_id,
             ]);
 
-            // Determine which token to use
-            // Priority: location_access_token > access_token
-            $token = $account->location_access_token ?? $account->access_token;
+            // STRICT: This endpoint REQUIRES Location token
+            // By the time this is called, location token should already exist from provider creation
+            if (!$account->location_access_token) {
+                Log::error('Location token required but not found', [
+                    'account_id' => $account->id,
+                    'token_type' => $account->token_type,
+                    'has_company_token' => !empty($account->access_token),
+                ]);
 
-            if (!$token) {
                 return [
-                    'error' => 'No valid access token available',
+                    'error' => 'Location access token is required for config creation. ' .
+                              'Please complete OAuth flow first. Current token type: ' .
+                              ($account->token_type ?? 'Unknown'),
                 ];
             }
+
+            $token = $account->location_access_token;
 
             Log::info('Creating HighLevel config via /connect endpoint', [
                 'account_id' => $account->id,
@@ -483,19 +482,36 @@ class HighLevelService
                 'current_token_type' => $account->token_type ?? 'Unknown',
             ]);
 
-            // Use Location token (should be available from OAuth)
-            // Priority: location_access_token > access_token
-            $token = $account->location_access_token ?? $account->access_token;
+            // CRITICAL: This endpoint requires a Location token, not a Company token
+            // If we only have a Company token, exchange it for a Location token first
+            $token = $account->location_access_token;
 
             if (!$token) {
-                throw new \Exception('No valid access token available');
+                Log::info('No location token found, attempting token exchange', [
+                    'account_id' => $account->id,
+                    'location_id' => $account->location_id,
+                    'has_company_token' => !empty($account->access_token),
+                ]);
+
+                $exchangeResult = $this->exchangeCompanyTokenForLocation($account, $account->location_id);
+
+                if (isset($exchangeResult['error'])) {
+                    throw new \Exception('Failed to exchange Company token for Location token: ' . $exchangeResult['error']);
+                }
+
+                // Reload the account to get the updated token
+                $account->refresh();
+                $token = $account->location_access_token;
             }
 
-            Log::info('Using token for provider creation', [
+            if (!$token) {
+                throw new \Exception('No valid location access token available after exchange attempt');
+            }
+
+            Log::info('Using location token for provider creation', [
                 'account_id' => $account->id,
                 'location_id' => $account->location_id,
                 'token_type' => $account->token_type,
-                'using_location_token' => !empty($account->location_access_token),
             ]);
 
             // Build the URL with locationId as query parameter
