@@ -276,31 +276,14 @@ class HighLevelService
                 'locationId' => $account->location_id,
             ]);
 
-            // IMPORTANT: /connect endpoint requires Location token, NOT Company token
-            // If we only have Company token, exchange it first
+            // Determine which token to use
+            // Priority: location_access_token > access_token
             $token = $account->location_access_token ?? $account->access_token;
 
-            if (!$account->location_access_token && $account->company_id) {
-                Log::info('No location token found, attempting token exchange', [
-                    'account_id' => $account->id,
-                    'location_id' => $account->location_id,
-                    'token_type' => $account->token_type ?? 'Unknown',
-                ]);
-
-                $exchangeResult = $this->exchangeCompanyTokenForLocation($account, $account->location_id);
-
-                if (isset($exchangeResult['error'])) {
-                    Log::error('Token exchange failed before config creation', [
-                        'error' => $exchangeResult['error'],
-                    ]);
-                    return [
-                        'error' => 'Token exchange failed: ' . $exchangeResult['error'],
-                    ];
-                }
-
-                // Reload account to get new token
-                $account->refresh();
-                $token = $account->location_access_token;
+            if (!$token) {
+                return [
+                    'error' => 'No valid access token available',
+                ];
             }
 
             Log::info('Creating HighLevel config via /connect endpoint', [
