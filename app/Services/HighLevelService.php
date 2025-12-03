@@ -112,6 +112,7 @@ class HighLevelService
             $headers = [
                 'Accept' => 'application/json',
                 'Content-Type' => 'application/x-www-form-urlencoded',
+                'Version' => self::API_VERSION,
                 'Authorization' => 'Bearer ' . $account->access_token,
             ];
 
