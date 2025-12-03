@@ -185,6 +185,45 @@ class HighLevelProviderController extends Controller
                 'is_active' => true,
             ]);
 
+            // Generate API keys for HighLevel config
+            $apiKeys = $account->generateApiKeys();
+
+            Log::info('API keys generated for HighLevel config', [
+                'location_id' => $locationId,
+                'account_id' => $account->id,
+                'has_live_keys' => !empty($apiKeys['api_key_live']),
+                'has_test_keys' => !empty($apiKeys['api_key_test']),
+            ]);
+
+            // Create HighLevel config with generated API keys
+            $configResult = $this->highLevelService->connectConfig($account, [
+                'liveMode' => [
+                    'apiKey' => $apiKeys['api_key_live'],
+                    'publishableKey' => $apiKeys['publishable_key_live'],
+                ],
+                'testMode' => [
+                    'apiKey' => $apiKeys['api_key_test'],
+                    'publishableKey' => $apiKeys['publishable_key_test'],
+                ],
+            ]);
+
+            if (isset($configResult['error'])) {
+                Log::error('HighLevel config creation failed', [
+                    'location_id' => $locationId,
+                    'error' => $configResult['error'],
+                    'details' => $configResult['details'] ?? null,
+                ]);
+
+                return back()->with('warning',
+                    'PayTR credentials saved but HighLevel config creation failed. Please contact support.'
+                )->withInput();
+            }
+
+            Log::info('HighLevel config created successfully', [
+                'location_id' => $locationId,
+                'config_id' => $configResult['_id'] ?? $configResult['id'] ?? null,
+            ]);
+
             // Send provider connected callback to HighLevel
             if ($account->provider_callback_url) {
                 $this->highLevelService->sendProviderConnected($account);
@@ -193,6 +232,7 @@ class HighLevelProviderController extends Controller
             $this->userActionLogger->log($account, 'paytr_credentials_configured', [
                 'location_id' => $locationId,
                 'test_mode' => $request->input('test_mode', true),
+                'config_created' => true,
             ]);
 
             Log::info('PayTR credentials saved successfully', [

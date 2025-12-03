@@ -38,6 +38,10 @@ class HLAccount extends Model
         'paytr_test_mode',
         'paytr_configured',
         'paytr_configured_at',
+        'api_key_live',
+        'api_key_test',
+        'publishable_key_live',
+        'publishable_key_test',
     ];
 
     protected $casts = [
@@ -58,6 +62,10 @@ class HLAccount extends Model
         'location_refresh_token',
         'paytr_merchant_key',
         'paytr_merchant_salt',
+        'api_key_live',
+        'api_key_test',
+        'publishable_key_live',
+        'publishable_key_test',
     ];
 
     /**
@@ -219,5 +227,84 @@ class HLAccount extends Model
 
         // Fallback to the generic access_token
         return $this->access_token;
+    }
+
+    /**
+     * Generate unique API keys for HighLevel config.
+     * Creates both test and live mode keys using hash-based generation.
+     *
+     * @return array Generated keys
+     */
+    public function generateApiKeys(): array
+    {
+        $timestamp = now()->timestamp;
+        $appKey = config('app.key');
+
+        $keys = [
+            'api_key_live' => hash_hmac('sha256',
+                $this->location_id . ':live:api:' . $timestamp,
+                $appKey
+            ),
+            'api_key_test' => hash_hmac('sha256',
+                $this->location_id . ':test:api:' . $timestamp,
+                $appKey
+            ),
+            'publishable_key_live' => hash_hmac('sha256',
+                $this->location_id . ':live:publishable:' . $timestamp,
+                $appKey
+            ),
+            'publishable_key_test' => hash_hmac('sha256',
+                $this->location_id . ':test:publishable:' . $timestamp,
+                $appKey
+            ),
+        ];
+
+        // Store the generated keys
+        $this->update($keys);
+
+        return $keys;
+    }
+
+    /**
+     * Check if API keys are configured.
+     *
+     * @return bool
+     */
+    public function hasApiKeys(): bool
+    {
+        return !empty($this->api_key_live) &&
+               !empty($this->api_key_test) &&
+               !empty($this->publishable_key_live) &&
+               !empty($this->publishable_key_test);
+    }
+
+    /**
+     * Get API keys for HighLevel config.
+     *
+     * @return array
+     */
+    public function getApiKeys(): array
+    {
+        return [
+            'live' => [
+                'apiKey' => $this->api_key_live,
+                'publishableKey' => $this->publishable_key_live,
+            ],
+            'test' => [
+                'apiKey' => $this->api_key_test,
+                'publishableKey' => $this->publishable_key_test,
+            ],
+        ];
+    }
+
+    /**
+     * Validate an API key for query requests.
+     *
+     * @param string $apiKey The key to validate
+     * @return bool
+     */
+    public function isValidApiKey(string $apiKey): bool
+    {
+        return $apiKey === $this->api_key_live || $apiKey === $this->api_key_test;
     }
 }

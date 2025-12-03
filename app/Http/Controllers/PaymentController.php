@@ -39,9 +39,22 @@ class PaymentController extends Controller
             }
 
             $data = $request->all();
+            $apiKey = $data['apiKey'] ?? null;
+
+            // Validate API key sent by HighLevel
+            if (!$apiKey || !$account->isValidApiKey($apiKey)) {
+                Log::warning('Invalid API key for payment query', [
+                    'location_id' => $account->location_id,
+                    'has_api_key' => !empty($apiKey),
+                    'has_stored_keys' => $account->hasApiKeys(),
+                ]);
+
+                return response()->json(['error' => 'Unauthorized - Invalid API key'], 401);
+            }
+
             $type = $data['type'] ?? null;
 
-            $this->userActionLogger->log($account, 'payment_query', $data);
+            $this->userActionLogger->log($account, 'payment_query', array_merge($data, ['api_key_valid' => true]));
 
             switch ($type) {
                 case 'verify':
