@@ -210,20 +210,6 @@ class PayTRSetupController extends Controller
                 ], 404);
             }
 
-            //            // Test PayTR credentials before saving
-//            $testResult = $this->testPayTRCredentials([
-//                'merchant_id' => $request->merchant_id,
-//                'merchant_key' => $request->merchant_key,
-//                'merchant_salt' => $request->merchant_salt,
-//                'test_mode' => $request->boolean('test_mode', true),
-//            ]);
-//
-//            if (!$testResult['success']) {
-//                return response()->json([
-//                    'success' => false,
-//                    'message' => 'PayTR credentials test failed: ' . $testResult['error'],
-//                ], 400);
-//            }
 
             // Save credentials
             $account->setPayTRCredentials([
