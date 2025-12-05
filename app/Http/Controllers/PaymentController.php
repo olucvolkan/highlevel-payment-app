@@ -115,7 +115,6 @@ class PaymentController extends Controller
         $account = $this->getAccountFromRequest($request);
 
         if (!$account) {
-            Log::warning('Invalid account', [$account, $request->all()]);
             abort(401, 'Invalid account');
         }
 
@@ -479,7 +478,9 @@ class PaymentController extends Controller
         $locationId = $request->header('X-Location-Id') ?: $request->get('locationId');
 
         if (!$locationId) {
-            Log::info(sprintf('%s', $locationId));
+            Log::warning($locationId);
+            Log::warning('No Location', [$request->getContent()]);
+            Log::warning(sprintf('%s', $locationId));
             return null;
         }
 
