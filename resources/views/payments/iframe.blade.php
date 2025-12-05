@@ -86,17 +86,28 @@
         <p>Unable to load payment form. Please try again.</p>
     </div>
     
-    <iframe id="paymentFrame" class="payment-iframe" src="{{ $iframeUrl }}"></iframe>
+    <iframe id="paymentFrame" class="payment-iframe"></iframe>
 
     <script>
         // Payment configuration
         const config = {
-            iframeUrl: '{{ $iframeUrl }}',
-            merchantOid: '{{ $merchantOid }}',
-            transactionId: '{{ $transactionId }}',
-            amount: {{ $amount }},
-            currency: '{{ $currency }}'
+            locationId: '{{ $locationId }}',
+            apiUrl: '{{ $apiUrl }}',
+            iframeUrl: null,
+            merchantOid: null,
+            transactionId: null,
+            amount: null,
+            currency: null
         };
+
+        // HighLevel allowed origins for postMessage security
+        const HIGHLEVEL_ORIGINS = [
+            'https://app.gohighlevel.com',
+            'https://app.msgsndr.com',
+            'https://builder.gohighlevel.com'
+        ];
+
+        let paymentInitialized = false;
 
         // DOM elements
         const loading = document.getElementById('loading');
@@ -108,37 +119,33 @@
             if (window.parent && window.parent !== window) {
                 window.parent.postMessage({
                     type: 'custom_provider_ready',
-                    data: {
-                        merchantOid: config.merchantOid,
-                        transactionId: config.transactionId
-                    }
-                }, '*');
+                    loaded: true,
+                    addCardOnFileSupported: true // PayTR supports card storage
+                }, '*'); // HighLevel expects wildcard origin for initial ready message
+                console.log('Sent custom_provider_ready to parent');
             }
         }
 
         // Notify parent of payment success
         function notifyPaymentSuccess(chargeId) {
             if (window.parent && window.parent !== window) {
+                console.log('Sending payment success to parent:', chargeId);
                 window.parent.postMessage({
                     type: 'custom_element_success_response',
-                    data: {
-                        chargeId: chargeId,
-                        transactionId: config.transactionId,
-                        amount: config.amount,
-                        currency: config.currency
-                    }
+                    chargeId: chargeId,
+                    transactionId: config.transactionId
                 }, '*');
             }
         }
 
         // Notify parent of payment error
-        function notifyPaymentError(error) {
+        function notifyPaymentError(errorMessage) {
             if (window.parent && window.parent !== window) {
+                console.log('Sending payment error to parent:', errorMessage);
                 window.parent.postMessage({
                     type: 'custom_element_error_response',
-                    data: {
-                        error: error,
-                        transactionId: config.transactionId
+                    error: {
+                        description: errorMessage
                     }
                 }, '*');
             }
@@ -147,13 +154,104 @@
         // Notify parent of payment cancellation
         function notifyPaymentClosed() {
             if (window.parent && window.parent !== window) {
+                console.log('Sending payment closed to parent');
                 window.parent.postMessage({
-                    type: 'custom_element_close_response',
-                    data: {
-                        transactionId: config.transactionId
-                    }
+                    type: 'custom_element_close_response'
                 }, '*');
             }
+        }
+
+        // Handle payment initiation from HighLevel
+        function handlePaymentInitiation(paymentData) {
+            if (paymentInitialized) {
+                console.warn('Payment already initialized');
+                return;
+            }
+
+            console.log('Received payment_initiate_props from HighLevel:', paymentData);
+            paymentInitialized = true;
+
+            // Update config with received data
+            config.amount = paymentData.amount;
+            config.currency = paymentData.currency || 'TRY';
+            config.transactionId = paymentData.transactionId;
+
+            // Update UI to show payment info
+            if (paymentData.amount && document.querySelector('.amount')) {
+                document.querySelector('.amount').textContent =
+                    `${paymentData.amount} ${paymentData.currency || 'TRY'}`;
+            }
+            if (paymentData.transactionId && document.querySelector('.transaction-id')) {
+                document.querySelector('.transaction-id').textContent =
+                    `Transaction: ${paymentData.transactionId}`;
+            }
+
+            // Call backend to initialize PayTR payment
+            initializePayTRPayment(paymentData);
+        }
+
+        // Initialize PayTR payment via backend
+        function initializePayTRPayment(paymentData) {
+            loading.style.display = 'flex';
+            errorDiv.style.display = 'none';
+
+            const requestData = {
+                amount: paymentData.amount,
+                currency: paymentData.currency || 'TRY',
+                email: paymentData.contact?.email || paymentData.email,
+                transactionId: paymentData.transactionId,
+                contactId: paymentData.contact?.id || paymentData.contactId,
+                orderId: paymentData.orderId,
+                subscriptionId: paymentData.subscriptionId,
+                mode: paymentData.mode || 'payment',
+                user_name: paymentData.contact?.name || 'Customer',
+                user_phone: paymentData.contact?.phone || '0000000000',
+                user_ip: '{{ request()->ip() }}',
+            };
+
+            console.log('Calling /api/payments/initialize with data:', requestData);
+
+            fetch(config.apiUrl + '/api/payments/initialize', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'X-Location-Id': config.locationId,
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => {
+                        throw new Error(err.error || 'Payment initialization failed');
+                    });
+                }
+                return response.json();
+            })
+            .then(result => {
+                console.log('Payment initialization response:', result);
+
+                if (result.success) {
+                    // Store payment details
+                    config.merchantOid = result.merchant_oid;
+                    config.iframeUrl = result.iframe_url;
+
+                    // Load PayTR iframe
+                    paymentFrame.src = result.iframe_url;
+                } else {
+                    loading.style.display = 'none';
+                    errorDiv.style.display = 'block';
+                    notifyPaymentError(result.error || 'Payment initialization failed');
+                }
+            })
+            .catch(error => {
+                console.error('Payment initialization error:', error);
+                loading.style.display = 'none';
+                errorDiv.style.display = 'block';
+                errorDiv.querySelector('p').textContent = error.message;
+                notifyPaymentError(error.message || 'Failed to initialize payment');
+            });
         }
 
         // Handle iframe load
@@ -170,25 +268,36 @@
             notifyPaymentError('Failed to load payment form');
         };
 
-        // Listen for messages from PayTR iframe
+        // Listen for messages from both HighLevel and PayTR
         window.addEventListener('message', function(event) {
-            // Verify origin is PayTR
-            if (event.origin !== 'https://www.paytr.com') {
+            console.log('Received postMessage:', event.origin, event.data);
+
+            // Handle messages from HighLevel (payment initiation)
+            if (HIGHLEVEL_ORIGINS.includes(event.origin) || event.origin.includes('gohighlevel') || event.origin.includes('msgsndr')) {
+                const data = event.data;
+
+                if (data.type === 'payment_initiate_props') {
+                    handlePaymentInitiation(data);
+                }
                 return;
             }
 
-            const data = event.data;
+            // Handle messages from PayTR iframe
+            if (event.origin === 'https://www.paytr.com') {
+                const data = event.data;
 
-            if (data.type === 'payment_success') {
-                // PayTR payment successful
-                notifyPaymentSuccess(data.chargeId || config.merchantOid);
-            } else if (data.type === 'payment_error') {
-                // PayTR payment failed
-                notifyPaymentError(data.error || 'Payment failed');
-            } else if (data.type === 'payment_cancelled') {
-                // User cancelled payment
-                notifyPaymentClosed();
+                if (data.type === 'payment_success') {
+                    notifyPaymentSuccess(data.chargeId || config.merchantOid);
+                } else if (data.type === 'payment_error') {
+                    notifyPaymentError(data.error || 'Payment failed');
+                } else if (data.type === 'payment_cancelled') {
+                    notifyPaymentClosed();
+                }
+                return;
             }
+
+            // Log unknown origins for debugging
+            console.warn('Received message from unknown origin:', event.origin);
         });
 
         // Poll payment status (fallback mechanism)
@@ -244,16 +353,12 @@
             }
         });
 
-        // Set iframe source with error handling
-        setTimeout(function() {
-            if (config.iframeUrl) {
-                paymentFrame.src = config.iframeUrl;
-            } else {
-                loading.style.display = 'none';
-                errorDiv.style.display = 'block';
-                notifyPaymentError('Invalid payment URL');
-            }
-        }, 1000);
+        // Send ready notification immediately when page loads
+        // DON'T wait for iframe to load - HighLevel needs to know we're ready first
+        notifyParentReady();
+
+        // The PayTR iframe will be loaded AFTER we receive payment_initiate_props from HighLevel
+        // and successfully call /api/payments/initialize
     </script>
 </body>
 </html>

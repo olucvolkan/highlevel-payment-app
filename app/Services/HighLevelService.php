@@ -368,7 +368,20 @@ class HighLevelService
         ]);
 
         try {
-            $response = Http::withToken($account->access_token)
+            // Use location_access_token if available, fallback to access_token
+            // Webhooks should preferably use location-scoped tokens
+            $token = $account->location_access_token ?: $account->access_token;
+
+            if (!$token) {
+                Log::error('No access token available for webhook', [
+                    'account_id' => $account->id,
+                    'location_id' => $account->location_id,
+                ]);
+                $webhookLog->markAsFailed('No access token available');
+                return false;
+            }
+
+            $response = Http::withToken($token)
                 ->withHeaders([
                     'Version' => self::API_VERSION,
                     'Accept' => 'application/json',

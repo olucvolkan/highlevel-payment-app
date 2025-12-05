@@ -10,6 +10,7 @@ use App\Services\HighLevelService;
 use App\PaymentGateways\PaymentProviderFactory;
 use App\Logging\PaymentLogger;
 use App\Logging\UserActionLogger;
+use App\Http\Requests\InitializePaymentRequest;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Http\JsonResponse;
@@ -87,6 +88,10 @@ class PaymentController extends Controller
 
     /**
      * Display payment iframe page
+     *
+     * This endpoint is loaded by HighLevel in an iframe WITHOUT payment parameters.
+     * The iframe will receive payment details via postMessage from HighLevel and then
+     * call the /api/payments/initialize endpoint to create the PayTR payment.
      */
     public function paymentPage(Request $request): \Illuminate\View\View
     {
@@ -96,38 +101,72 @@ class PaymentController extends Controller
             abort(401, 'Invalid account');
         }
 
-        $data = $request->all();
-
-        // Validate required parameters
-        $validator = Validator::make($data, [
-            'amount' => 'required|numeric|min:0.01',
-            'email' => 'required|email',
-            'transactionId' => 'required|string',
-        ]);
-
-        if ($validator->fails()) {
-            abort(400, 'Invalid payment parameters');
+        // Check if PayTR credentials are configured
+        if (!$account->hasPayTRCredentials()) {
+            return view('payments.setup-required', [
+                'locationId' => $account->location_id,
+                'setupUrl' => route('paytr.setup', ['location_id' => $account->location_id]),
+            ]);
         }
 
-        // Create payment
-        $result = $this->paymentService->createPayment($account, $data);
-
-        if (!$result['success']) {
-            if ($result['redirect_to_setup'] ?? false) {
-                // Redirect to PayTR setup page
-                return redirect()->route('paytr.setup', ['location_id' => $account->location_id])
-                                ->with('error', $result['error']);
-            }
-            abort(400, $result['error']);
-        }
-
+        // Return iframe that waits for payment_initiate_props from HighLevel
         return view('payments.iframe', [
-            'iframeUrl' => $result['iframe_url'],
-            'merchantOid' => $result['merchant_oid'],
-            'transactionId' => $data['transactionId'],
-            'amount' => $data['amount'],
-            'currency' => $data['currency'] ?? 'TRY',
+            'locationId' => $account->location_id,
+            'apiUrl' => config('app.url'),
         ]);
+    }
+
+    /**
+     * Initialize payment after receiving payment details from HighLevel via postMessage
+     *
+     * This endpoint is called by JavaScript in the payment iframe after it receives
+     * payment_initiate_props event from HighLevel parent window.
+     */
+    public function initialize(InitializePaymentRequest $request): JsonResponse
+    {
+        $account = $this->getAccountFromRequest($request);
+
+        if (!$account) {
+            return response()->json(['error' => 'Invalid account'], 401);
+        }
+
+        // Validation is automatically handled by InitializePaymentRequest
+        $data = $request->validated();
+
+        try {
+            // Create PayTR payment
+            $result = $this->paymentService->createPayment($account, $data);
+
+            if (!$result['success']) {
+                return response()->json($result, 400);
+            }
+
+            // Log payment initialization
+            $this->userActionLogger->log($account, 'payment_initialized', [
+                'transaction_id' => $data['transactionId'],
+                'amount' => $data['amount'],
+                'currency' => $data['currency'] ?? 'TRY',
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'iframe_url' => $result['iframe_url'],
+                'merchant_oid' => $result['merchant_oid'],
+                'token' => $result['token'] ?? null,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Payment initialization failed', [
+                'account_id' => $account->id,
+                'error' => $e->getMessage(),
+                'data' => $data,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Payment initialization failed. Please try again.',
+            ], 500);
+        }
     }
 
     /**

@@ -20,7 +20,10 @@ use App\Http\Controllers\WebhookController;
 Route::prefix('payments')->group(function () {
     // Payment query endpoint (used by HighLevel for all payment operations)
     Route::post('/query', [PaymentController::class, 'query'])->name('payments.query');
-    
+
+    // Payment initialization endpoint (called by iframe after receiving payment_initiate_props)
+    Route::post('/initialize', [PaymentController::class, 'initialize'])->name('payments.initialize');
+
     // Payment status check endpoint (used by iframe for polling)
     Route::post('/status', [PaymentController::class, 'status'])->name('payments.status');
 });
