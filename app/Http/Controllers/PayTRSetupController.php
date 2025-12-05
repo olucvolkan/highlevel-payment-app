@@ -123,13 +123,13 @@ class PayTRSetupController extends Controller
     protected function extractLocationId(Request $request): ?string
     {
         // 1. Try from query parameter (most common)
-        if ($request->has('location_id')) {
-            return $request->get('location_id');
+        if ($request->has('locationId')) {
+            return $request->get('locationId');
         }
 
         // 2. Try from session (set during OAuth)
-        if ($request->session()->has('location_id')) {
-            return $request->session()->get('location_id');
+        if ($request->session()->has('locationId')) {
+            return $request->session()->get('locationId');
         }
 
         // 3. Try to decode from HighLevel auth_token (if provided in iframe)
@@ -137,8 +137,8 @@ class PayTRSetupController extends Controller
             try {
                 $token = $request->get('auth_token');
                 $decoded = $this->decodeHighLevelToken($token);
-                if (array_key_exists('location_id', $decoded)) {
-                    return $decoded['location_id'];
+                if (array_key_exists('locationId', $decoded)) {
+                    return $decoded['locationId'];
                 }
             } catch (\Throwable $e) {
                 Log::warning('Failed to decode auth_token', [
