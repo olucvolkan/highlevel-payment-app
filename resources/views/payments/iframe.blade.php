@@ -74,11 +74,11 @@
 <body>
     <div id="loading" class="loading">
         <div class="payment-info">
-            <div class="amount">{{ number_format($amount, 2) }} {{ $currency }}</div>
-            <div class="transaction-id">Transaction: {{ $transactionId }}</div>
+            <div class="amount">Preparing payment...</div>
+            <div class="transaction-id">Please wait</div>
         </div>
         <div class="spinner"></div>
-        <p>Preparing secure payment...</p>
+        <p>Loading secure payment form...</p>
     </div>
     
     <div id="error" class="error-message">
@@ -91,7 +91,7 @@
     <script>
         // Payment configuration
         const config = {
-            locationId: '{{ $locationId }}',
+            locationId: '{{ $locationId ?? "" }}',  // Can be empty, will come via postMessage
             apiUrl: '{{ $apiUrl }}',
             iframeUrl: null,
             merchantOid: null,
@@ -99,6 +99,11 @@
             amount: null,
             currency: null
         };
+
+        console.log('Payment iframe loaded with config:', {
+            locationId: config.locationId || 'Will receive via postMessage',
+            apiUrl: config.apiUrl
+        });
 
         // HighLevel allowed origins for postMessage security
         const HIGHLEVEL_ORIGINS = [
@@ -171,6 +176,12 @@
             console.log('Received payment_initiate_props from HighLevel:', paymentData);
             paymentInitialized = true;
 
+            // Extract locationId if present (HighLevel may send it here)
+            if (paymentData.locationId && !config.locationId) {
+                console.log('LocationId received via postMessage:', paymentData.locationId);
+                config.locationId = paymentData.locationId;
+            }
+
             // Update config with received data
             config.amount = paymentData.amount;
             config.currency = paymentData.currency || 'TRY';
@@ -192,6 +203,16 @@
 
         // Initialize PayTR payment via backend
         function initializePayTRPayment(paymentData) {
+            // Check if we have locationId
+            if (!config.locationId) {
+                console.error('Cannot initialize payment: locationId is missing');
+                loading.style.display = 'none';
+                errorDiv.style.display = 'block';
+                errorDiv.querySelector('p').textContent = 'Configuration error: Location ID missing';
+                notifyPaymentError('Location ID not provided');
+                return;
+            }
+
             loading.style.display = 'flex';
             errorDiv.style.display = 'none';
 

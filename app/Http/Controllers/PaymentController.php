@@ -106,29 +106,84 @@ class PaymentController extends Controller
     /**
      * Display payment iframe page
      *
-     * This endpoint is loaded by HighLevel in an iframe WITHOUT payment parameters.
+     * This endpoint is loaded by HighLevel in an iframe.
+     * LocationID can come via query parameter, header, or postMessage.
      * The iframe will receive payment details via postMessage from HighLevel and then
      * call the /api/payments/initialize endpoint to create the PayTR payment.
      */
     public function paymentPage(Request $request): \Illuminate\View\View
     {
-        $account = $this->getAccountFromRequest($request);
+        // DETAILED DEBUG LOGGING
+        Log::info('=== Payment Page Request START ===');
+        Log::info('Full URL', ['url' => $request->fullUrl()]);
+        Log::info('Method', ['method' => $request->method()]);
+        Log::info('Path', ['path' => $request->path()]);
+        Log::info('Query String', ['query' => $request->getQueryString()]);
+        Log::info('All Query Params', ['params' => $request->query()]);
+        Log::info('All Input', ['input' => $request->all()]);
+        Log::info('Headers', [
+            'X-Location-Id' => $request->header('X-Location-Id'),
+            'Referer' => $request->header('Referer'),
+            'User-Agent' => $request->header('User-Agent'),
+        ]);
 
-        if (!$account) {
-            abort(401, 'Invalid account');
-        }
+        // Try different ways to get locationId
+        $locationIdFromHeader = $request->header('X-Location-Id');
+        $locationIdFromQuery = $request->query('locationId');
+        $locationIdFromGet = $request->get('locationId');
+        $locationIdFromInput = $request->input('locationId');
 
-        // Check if PayTR credentials are configured
-        if (!$account->hasPayTRCredentials()) {
-            return view('payments.setup-required', [
+        Log::info('LocationID Extraction Attempts', [
+            'from_header' => $locationIdFromHeader,
+            'from_query' => $locationIdFromQuery,
+            'from_get' => $locationIdFromGet,
+            'from_input' => $locationIdFromInput,
+        ]);
+
+        $locationId = $locationIdFromHeader ?: $locationIdFromQuery ?: $locationIdFromGet ?: $locationIdFromInput;
+
+        Log::info('Final LocationID', ['locationId' => $locationId]);
+        Log::info('=== Payment Page Request END ===');
+
+        // If locationId exists, validate account and credentials
+        if ($locationId) {
+            $account = HLAccount::where('location_id', $locationId)->first();
+
+            if (!$account) {
+                Log::warning('Payment page: Account not found', [
+                    'locationId' => $locationId,
+                    'ip' => $request->ip(),
+                ]);
+
+                // Account not found, but load iframe anyway
+                // LocationID might come via postMessage
+                return view('payments.iframe', [
+                    'locationId' => null,
+                    'apiUrl' => config('app.url'),
+                    'error' => 'Account not found',
+                ]);
+            }
+
+            // Check if PayTR credentials are configured
+            if (!$account->hasPayTRCredentials()) {
+                return view('payments.setup-required', [
+                    'locationId' => $account->location_id,
+                    'setupUrl' => route('paytr.setup', ['location_id' => $account->location_id]),
+                ]);
+            }
+
+            // Account found and configured
+            return view('payments.iframe', [
                 'locationId' => $account->location_id,
-                'setupUrl' => route('paytr.setup', ['location_id' => $account->location_id]),
+                'apiUrl' => config('app.url'),
             ]);
         }
 
-        // Return iframe that waits for payment_initiate_props from HighLevel
+        // No locationId - load iframe anyway (will come via postMessage)
+        Log::info('Payment page without locationId - waiting for postMessage');
+
         return view('payments.iframe', [
-            'locationId' => $account->location_id,
+            'locationId' => null,
             'apiUrl' => config('app.url'),
         ]);
     }
@@ -478,8 +533,6 @@ class PaymentController extends Controller
         $locationId = $request->header('X-Location-Id') ?: $request->get('locationId');
 
         if (!$locationId) {
-            Log::warning($locationId);
-            Log::warning('No Location', [$request->getContent()]);
             Log::warning(sprintf('%s', $locationId));
             return null;
         }
