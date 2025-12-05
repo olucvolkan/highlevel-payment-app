@@ -44,6 +44,9 @@ class PayTRHashService
 
     /**
      * Generate payment initialization token.
+     *
+     * NOTE: This method includes merchant_salt in the hash string to match PayTR specification.
+     * Payment initialization uses different format than callback validation.
      */
     public function generatePaymentToken(array $data): string
     {
@@ -56,7 +59,8 @@ class PayTRHashService
                    $data['installment_count'] .
                    $data['currency'] .
                    $data['test_mode'] .
-                   $data['non_3d'];
+                   $data['non_3d'] .
+                   $this->merchantSalt;  // Include salt for payment initialization
 
         return $this->generateHash($hashStr);
     }
@@ -109,6 +113,9 @@ class PayTRHashService
 
     /**
      * Generate card storage token.
+     *
+     * NOTE: This method includes merchant_salt in the hash string to match PayTR specification.
+     * Card storage uses same format as payment initialization.
      */
     public function generateCardToken(array $data): string
     {
@@ -121,18 +128,22 @@ class PayTRHashService
                    ($data['installment_count'] ?? '0') .
                    $data['currency'] .
                    $data['test_mode'] .
-                   $data['non_3d'];
+                   $data['non_3d'] .
+                   $this->merchantSalt;  // Include salt for card storage
 
         return $this->generateHash($hashStr);
     }
 
     /**
      * Generate HMAC-SHA256 hash.
+     *
+     * IMPORTANT: Calling methods must include merchant_salt in the $data string.
+     * This method does NOT append salt to prevent double-salt bugs.
      */
     protected function generateHash(string $data): string
     {
         return base64_encode(
-            hash_hmac('sha256', $data . $this->merchantSalt, $this->merchantKey, true)
+            hash_hmac('sha256', $data, $this->merchantKey, true)
         );
     }
 

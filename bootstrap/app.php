@@ -22,6 +22,14 @@ return Application::configure(basePath: dirname(__DIR__))
             'oauth/uninstall',
         ]);
     })
+    ->withSchedule(function ($schedule) {
+        // Proactively refresh OAuth tokens that will expire in next 10 minutes
+        // Runs every 5 minutes to ensure tokens are always fresh
+        $schedule->command('tokens:refresh-expiring --minutes=10')
+            ->everyFiveMinutes()
+            ->withoutOverlapping()
+            ->runInBackground();
+    })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
     })->create();

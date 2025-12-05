@@ -352,7 +352,7 @@ class HighLevelService
     }
 
     /**
-     * Send webhook to HighLevel.
+     * Send webhook to HighLevel with automatic token refresh.
      */
     public function sendWebhook(HLAccount $account, string $event, array $payload): bool
     {
@@ -368,6 +368,35 @@ class HighLevelService
         ]);
 
         try {
+            // Check if token is expired and refresh if needed
+            if ($account->isTokenExpired()) {
+                Log::info('Token expired, refreshing before webhook', [
+                    'account_id' => $account->id,
+                    'location_id' => $account->location_id,
+                    'expired_at' => $account->token_expires_at,
+                ]);
+
+                $refreshResult = $this->refreshToken($account);
+
+                if (isset($refreshResult['error'])) {
+                    Log::error('Failed to refresh token before webhook', [
+                        'account_id' => $account->id,
+                        'error' => $refreshResult['error'],
+                    ]);
+                    $webhookLog->markAsFailed('Token refresh failed: ' . $refreshResult['error']);
+                    return false;
+                }
+
+                // Reload account to get fresh tokens
+                $account->refresh();
+
+                // Also refresh location token if needed
+                if (empty($account->location_access_token) && $account->location_id) {
+                    $this->exchangeCompanyTokenForLocation($account, $account->location_id);
+                    $account->refresh();
+                }
+            }
+
             // Use location_access_token if available, fallback to access_token
             // Webhooks should preferably use location-scoped tokens
             $token = $account->location_access_token ?: $account->access_token;
@@ -397,6 +426,38 @@ class HighLevelService
                 $webhookLog->markAsSuccess($response->json(), $response->status());
 
                 return true;
+            }
+
+            // If 401 Unauthorized, token might be invalid despite expiry check
+            // Attempt one token refresh retry
+            if ($response->status() === 401) {
+                Log::warning('Webhook returned 401, attempting token refresh', [
+                    'account_id' => $account->id,
+                    'location_id' => $account->location_id,
+                ]);
+
+                $refreshResult = $this->refreshToken($account);
+
+                if (!isset($refreshResult['error'])) {
+                    $account->refresh();
+
+                    // Retry webhook with new token
+                    $retryToken = $account->location_access_token ?: $account->access_token;
+                    $retryResponse = Http::withToken($retryToken)
+                        ->withHeaders([
+                            'Version' => self::API_VERSION,
+                            'Accept' => 'application/json',
+                            'Content-Type' => 'application/json',
+                        ])
+                        ->post($webhookUrl, array_merge($payload, [
+                            'locationId' => $account->location_id,
+                        ]));
+
+                    if ($retryResponse->successful()) {
+                        $webhookLog->markAsSuccess($retryResponse->json(), $retryResponse->status());
+                        return true;
+                    }
+                }
             }
 
             $webhookLog->markAsFailed(

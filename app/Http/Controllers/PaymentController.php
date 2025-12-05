@@ -29,28 +29,45 @@ class PaymentController extends Controller
 
     /**
      * HighLevel query endpoint for payment verification and operations
+     *
+     * SECURITY: Validates that API key belongs to the requesting location
      */
     public function query(Request $request): JsonResponse
     {
         try {
-            $account = $this->getAccountFromRequest($request);
-
-            if (!$account) {
-                return response()->json(['error' => 'Invalid account'], 401);
-            }
-
             $data = $request->all();
+            $locationId = $request->header('X-Location-Id') ?: $data['locationId'] ?? null;
             $apiKey = $data['apiKey'] ?? null;
 
-            // Validate API key sent by HighLevel
-            if (!$apiKey || !$account->isValidApiKey($apiKey)) {
-                Log::warning('Invalid API key for payment query', [
-                    'location_id' => $account->location_id,
+            // Validate required parameters
+            if (!$locationId || !$apiKey) {
+                Log::warning('Payment query missing credentials', [
+                    'has_location_id' => !empty($locationId),
                     'has_api_key' => !empty($apiKey),
-                    'has_stored_keys' => $account->hasApiKeys(),
+                    'ip' => $request->ip(),
                 ]);
 
-                return response()->json(['error' => 'Unauthorized - Invalid API key'], 401);
+                return response()->json(['error' => 'Missing credentials'], 400);
+            }
+
+            // SECURITY FIX: Find account by BOTH location_id AND api_key
+            // This prevents cross-location attacks where an attacker uses their valid
+            // API key to access another location's data
+            $account = HLAccount::where('location_id', $locationId)
+                ->where(function($query) use ($apiKey) {
+                    $query->where('api_key_live', $apiKey)
+                          ->orWhere('api_key_test', $apiKey);
+                })
+                ->first();
+
+            if (!$account) {
+                Log::warning('Invalid API key or location combination', [
+                    'location_id' => $locationId,
+                    'api_key_prefix' => substr($apiKey, 0, 8) . '...',
+                    'ip' => $request->ip(),
+                ]);
+
+                return response()->json(['error' => 'Unauthorized - Invalid credentials'], 401);
             }
 
             $type = $data['type'] ?? null;
