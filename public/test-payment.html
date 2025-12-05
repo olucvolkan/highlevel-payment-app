@@ -252,9 +252,20 @@
 
         // Listen for messages from iframe
         window.addEventListener('message', (event) => {
-            const data = event.data;
-
-            addLog('Received from iframe: ' + JSON.stringify(data), 'info');
+            // Parse message data - handle both JSON string and object
+            let data;
+            try {
+                if (typeof event.data === 'string') {
+                    data = JSON.parse(event.data);
+                    addLog('Received JSON string from iframe: ' + event.data, 'info');
+                } else {
+                    data = event.data;
+                    addLog('Received object from iframe: ' + JSON.stringify(data), 'info');
+                }
+            } catch (e) {
+                addLog('⚠️ Failed to parse message: ' + event.data, 'warning');
+                return;
+            }
 
             if (data.type === 'custom_provider_ready') {
                 iframeReady = true;
@@ -307,9 +318,10 @@
             addLog('📤 Sending payment_initiate_props to iframe...', 'info');
             addLog('Data: ' + JSON.stringify(paymentData, null, 2), 'info');
 
-            iframe.contentWindow.postMessage(paymentData, '*');
+            // Send as JSON string (like HighLevel does)
+            iframe.contentWindow.postMessage(JSON.stringify(paymentData), '*');
 
-            addLog('✅ Payment data sent successfully', 'success');
+            addLog('✅ Payment data sent as JSON string', 'success');
         });
 
         // Send setup mode (add card)
@@ -344,9 +356,10 @@
             addLog('📤 Sending setup mode request to iframe...', 'info');
             addLog('Data: ' + JSON.stringify(setupData, null, 2), 'info');
 
-            iframe.contentWindow.postMessage(setupData, '*');
+            // Send as JSON string (like HighLevel does)
+            iframe.contentWindow.postMessage(JSON.stringify(setupData), '*');
 
-            addLog('✅ Setup data sent successfully', 'success');
+            addLog('✅ Setup data sent as JSON string', 'success');
         });
 
         // Clear log

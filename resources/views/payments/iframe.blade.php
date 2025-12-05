@@ -125,47 +125,56 @@
         // Notify parent that payment iframe is ready
         function notifyParentReady() {
             if (window.parent && window.parent !== window) {
-                window.parent.postMessage({
+                const message = {
                     type: 'custom_provider_ready',
                     loaded: true,
                     addCardOnFileSupported: true // PayTR supports card storage
-                }, '*'); // HighLevel expects wildcard origin for initial ready message
-                console.log('Sent custom_provider_ready to parent');
+                };
+
+                // HighLevel may expect JSON string instead of object
+                window.parent.postMessage(JSON.stringify(message), '*');
+                console.log('Sent custom_provider_ready to parent:', message);
             }
         }
 
         // Notify parent of payment success
         function notifyPaymentSuccess(chargeId) {
             if (window.parent && window.parent !== window) {
-                console.log('Sending payment success to parent:', chargeId);
-                window.parent.postMessage({
+                const message = {
                     type: 'custom_element_success_response',
                     chargeId: chargeId,
                     transactionId: config.transactionId
-                }, '*');
+                };
+
+                console.log('Sending payment success to parent:', message);
+                window.parent.postMessage(JSON.stringify(message), '*');
             }
         }
 
         // Notify parent of payment error
         function notifyPaymentError(errorMessage) {
             if (window.parent && window.parent !== window) {
-                console.log('Sending payment error to parent:', errorMessage);
-                window.parent.postMessage({
+                const message = {
                     type: 'custom_element_error_response',
                     error: {
                         description: errorMessage
                     }
-                }, '*');
+                };
+
+                console.log('Sending payment error to parent:', message);
+                window.parent.postMessage(JSON.stringify(message), '*');
             }
         }
 
         // Notify parent of payment cancellation
         function notifyPaymentClosed() {
             if (window.parent && window.parent !== window) {
-                console.log('Sending payment closed to parent');
-                window.parent.postMessage({
+                const message = {
                     type: 'custom_element_close_response'
-                }, '*');
+                };
+
+                console.log('Sending payment closed to parent:', message);
+                window.parent.postMessage(JSON.stringify(message), '*');
             }
         }
 
@@ -313,10 +322,24 @@
         window.addEventListener('message', function(event) {
             console.log('Received postMessage:', event.origin, event.data);
 
+            // Parse message data - handle both JSON string and object
+            let data;
+            try {
+                // If data is a string, try to parse it as JSON
+                if (typeof event.data === 'string') {
+                    data = JSON.parse(event.data);
+                    console.log('Parsed JSON string message:', data);
+                } else {
+                    // Data is already an object
+                    data = event.data;
+                }
+            } catch (e) {
+                console.warn('Failed to parse postMessage data:', e, event.data);
+                return;
+            }
+
             // Handle messages from HighLevel (payment initiation)
             if (HIGHLEVEL_ORIGINS.includes(event.origin) || event.origin.includes('gohighlevel') || event.origin.includes('msgsndr')) {
-                const data = event.data;
-
                 if (data.type === 'payment_initiate_props') {
                     handlePaymentInitiation(data);
                 }
@@ -325,8 +348,6 @@
 
             // Handle messages from PayTR iframe
             if (event.origin === 'https://www.paytr.com') {
-                const data = event.data;
-
                 if (data.type === 'payment_success') {
                     notifyPaymentSuccess(data.chargeId || config.merchantOid);
                 } else if (data.type === 'payment_error') {
