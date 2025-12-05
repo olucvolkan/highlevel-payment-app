@@ -109,10 +109,19 @@
         });
 
         // HighLevel allowed origins for postMessage security
+        // NOTE: HighLevel supports custom domains (e.g., link.sinirsizmusteri.com)
+        // So we can't rely solely on origin matching
         const HIGHLEVEL_ORIGINS = [
             'https://app.gohighlevel.com',
             'https://app.msgsndr.com',
             'https://builder.gohighlevel.com'
+        ];
+
+        // HighLevel custom domain patterns
+        const HIGHLEVEL_PATTERNS = [
+            'gohighlevel',
+            'msgsndr',
+            'leadconnector'
         ];
 
         let paymentInitialized = false;
@@ -194,15 +203,20 @@
             config.publishableKey = paymentData.publishableKey;
             config.locationId = paymentData.locationId;
             config.amount = paymentData.amount;
-            config.currency = paymentData.currency || 'TRY';
+            // HighLevel sends currency in lowercase, normalize to uppercase
+            config.currency = (paymentData.currency || 'TRY').toUpperCase();
             config.transactionId = paymentData.transactionId;
 
             console.log('Payment data extracted:', {
                 hasPublishableKey: !!config.publishableKey,
+                publishableKeyLast8: config.publishableKey ? '***' + config.publishableKey.slice(-8) : 'N/A',
                 hasLocationId: !!config.locationId,
+                locationId: config.locationId,
                 amount: config.amount,
                 currency: config.currency,
-                transactionId: config.transactionId
+                transactionId: config.transactionId,
+                orderId: paymentData.orderId,
+                contactEmail: paymentData.contact?.email
             });
 
             // Update UI to show payment info
@@ -246,7 +260,8 @@
 
             const requestData = {
                 amount: paymentData.amount,
-                currency: paymentData.currency || 'TRY',
+                // HighLevel sends currency in lowercase, normalize to uppercase
+                currency: (paymentData.currency || 'TRY').toUpperCase(),
                 email: paymentData.contact?.email || paymentData.email,
                 transactionId: paymentData.transactionId,
                 contactId: paymentData.contact?.id || paymentData.contactId,
@@ -254,11 +269,16 @@
                 subscriptionId: paymentData.subscriptionId,
                 mode: paymentData.mode || 'payment',
                 user_name: paymentData.contact?.name || 'Customer',
-                user_phone: paymentData.contact?.phone || '0000000000',
+                // HighLevel uses "contact.contact" not "contact.phone"
+                user_phone: paymentData.contact?.contact || paymentData.contact?.phone || '0000000000',
                 user_ip: '{{ request()->ip() }}',
             };
 
             console.log('Calling /api/payments/initialize with data:', requestData);
+            console.log('Request headers:', {
+                publishableKey: config.publishableKey ? '***' + config.publishableKey.slice(-8) : 'N/A',
+                locationId: config.locationId
+            });
 
             fetch(config.apiUrl + '/api/payments/initialize', {
                 method: 'POST',
@@ -308,7 +328,9 @@
         paymentFrame.onload = function() {
             loading.style.display = 'none';
             paymentFrame.style.display = 'block';
-            notifyParentReady();
+
+            // Start polling ONLY after PayTR iframe is loaded
+            startPolling();
         };
 
         // Handle iframe load error
@@ -338,15 +360,24 @@
                 return;
             }
 
-            // Handle messages from HighLevel (payment initiation)
-            if (HIGHLEVEL_ORIGINS.includes(event.origin) || event.origin.includes('gohighlevel') || event.origin.includes('msgsndr')) {
-                if (data.type === 'payment_initiate_props') {
-                    handlePaymentInitiation(data);
-                }
+            // Check if message is from HighLevel (including custom domains)
+            const isFromHighLevel = HIGHLEVEL_ORIGINS.includes(event.origin) ||
+                                   HIGHLEVEL_PATTERNS.some(pattern => event.origin.includes(pattern));
+
+            // Handle messages based on TYPE rather than just origin
+            // This allows HighLevel custom domains to work
+            if (data.type === 'payment_initiate_props') {
+                console.log('✅ Detected payment_initiate_props event');
+                console.log('Origin:', event.origin);
+                console.log('Is from known HighLevel origin:', isFromHighLevel);
+
+                // Accept payment_initiate_props from any origin that provides valid data
+                // This is safe because we validate publishableKey on backend
+                handlePaymentInitiation(data);
                 return;
             }
 
-            // Handle messages from PayTR iframe
+            // Handle messages from PayTR iframe (strict origin check)
             if (event.origin === 'https://www.paytr.com') {
                 if (data.type === 'payment_success') {
                     notifyPaymentSuccess(data.chargeId || config.merchantOid);
@@ -358,19 +389,32 @@
                 return;
             }
 
-            // Log unknown origins for debugging
-            console.warn('Received message from unknown origin:', event.origin);
+            // Log unknown message types for debugging
+            console.log('Received message with unknown type:', data.type, 'from origin:', event.origin);
         });
 
         // Poll payment status (fallback mechanism)
         let pollCount = 0;
         const maxPollCount = 60; // 5 minutes with 5-second intervals
+        let pollingStarted = false;
 
         function pollPaymentStatus() {
+            // Don't poll if payment hasn't been initialized yet
+            if (!config.merchantOid && !config.transactionId) {
+                console.log('Skipping poll - no payment initialized yet');
+                return;
+            }
+
             if (pollCount >= maxPollCount) {
                 notifyPaymentError('Payment timeout');
                 return;
             }
+
+            console.log('Polling payment status:', {
+                merchantOid: config.merchantOid,
+                transactionId: config.transactionId,
+                pollCount: pollCount
+            });
 
             fetch('/api/payments/status', {
                 method: 'POST',
@@ -404,13 +448,21 @@
             });
         }
 
-        // Start status polling after 10 seconds
-        setTimeout(pollPaymentStatus, 10000);
+        // Function to start polling (called after PayTR iframe loads)
+        function startPolling() {
+            if (pollingStarted) {
+                return;
+            }
+            pollingStarted = true;
+            console.log('Starting payment status polling...');
+            setTimeout(pollPaymentStatus, 10000); // Start after 10 seconds
+        }
 
         // Handle page visibility change (user switches tabs)
         document.addEventListener('visibilitychange', function() {
-            if (!document.hidden && paymentFrame.style.display === 'block') {
+            if (!document.hidden && paymentFrame.style.display === 'block' && config.merchantOid) {
                 // Page became visible again, check payment status
+                console.log('Page visible again, checking payment status');
                 pollPaymentStatus();
             }
         });
