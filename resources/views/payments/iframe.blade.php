@@ -92,6 +92,7 @@
         // Payment configuration
         const config = {
             locationId: '{{ $locationId ?? "" }}',  // Can be empty, will come via postMessage
+            publishableKey: '{{ $publishableKey ?? "" }}',  // Publishable key for authentication
             apiUrl: '{{ $apiUrl }}',
             iframeUrl: null,
             merchantOid: null,
@@ -102,6 +103,7 @@
 
         console.log('Payment iframe loaded with config:', {
             locationId: config.locationId || 'Will receive via postMessage',
+            publishableKey: config.publishableKey ? '***' + config.publishableKey.slice(-8) : 'Will receive via postMessage',
             apiUrl: config.apiUrl
         });
 
@@ -182,6 +184,12 @@
                 config.locationId = paymentData.locationId;
             }
 
+            // Extract publishableKey if present (HighLevel sends this for authentication)
+            if (paymentData.publishableKey && !config.publishableKey) {
+                console.log('PublishableKey received via postMessage');
+                config.publishableKey = paymentData.publishableKey;
+            }
+
             // Update config with received data
             config.amount = paymentData.amount;
             config.currency = paymentData.currency || 'TRY';
@@ -203,14 +211,19 @@
 
         // Initialize PayTR payment via backend
         function initializePayTRPayment(paymentData) {
-            // Check if we have locationId
-            if (!config.locationId) {
-                console.error('Cannot initialize payment: locationId is missing');
+            // Check if we have publishableKey (primary authentication)
+            if (!config.publishableKey) {
+                console.error('Cannot initialize payment: publishableKey is missing');
                 loading.style.display = 'none';
                 errorDiv.style.display = 'block';
-                errorDiv.querySelector('p').textContent = 'Configuration error: Location ID missing';
-                notifyPaymentError('Location ID not provided');
+                errorDiv.querySelector('p').textContent = 'Configuration error: Publishable Key missing';
+                notifyPaymentError('Publishable Key not provided');
                 return;
+            }
+
+            // Check if we have locationId (fallback, may not be needed with publishable key)
+            if (!config.locationId) {
+                console.warn('LocationId is missing, will authenticate using publishable key only');
             }
 
             loading.style.display = 'flex';
@@ -237,7 +250,8 @@
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                    'X-Location-Id': config.locationId,
+                    'X-Publishable-Key': config.publishableKey,  // Primary authentication
+                    'X-Location-Id': config.locationId || '',    // Optional fallback
                     'Accept': 'application/json'
                 },
                 body: JSON.stringify(requestData)

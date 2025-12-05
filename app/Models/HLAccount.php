@@ -17,6 +17,7 @@ class HLAccount extends Model
         'location_id',
         'company_id',
         'user_id',
+        'publishable_key',
         'access_token',
         'refresh_token',
         'token_expires_at',
@@ -306,5 +307,53 @@ class HLAccount extends Model
     public function isValidApiKey(string $apiKey): bool
     {
         return $apiKey === $this->api_key_live || $apiKey === $this->api_key_test;
+    }
+
+    /**
+     * Generate a unique publishable key for this account.
+     *
+     * @return string Generated publishable key
+     */
+    public function generatePublishableKey(): string
+    {
+        $key = 'pk_' . bin2hex(random_bytes(28)); // pk_ prefix + 56 hex chars = 59 total
+
+        $this->update(['publishable_key' => $key]);
+
+        return $key;
+    }
+
+    /**
+     * Check if account has a publishable key.
+     *
+     * @return bool
+     */
+    public function hasPublishableKey(): bool
+    {
+        return !empty($this->publishable_key);
+    }
+
+    /**
+     * Validate a publishable key.
+     *
+     * @param string $key The key to validate
+     * @return bool
+     */
+    public function isValidPublishableKey(string $key): bool
+    {
+        return $this->publishable_key === $key;
+    }
+
+    /**
+     * Find account by publishable key.
+     *
+     * @param string $publishableKey
+     * @return HLAccount|null
+     */
+    public static function findByPublishableKey(string $publishableKey): ?HLAccount
+    {
+        return self::where('publishable_key', $publishableKey)
+            ->where('is_active', true)
+            ->first();
     }
 }

@@ -159,6 +159,7 @@ class PaymentController extends Controller
                 // LocationID might come via postMessage
                 return view('payments.iframe', [
                     'locationId' => null,
+                    'publishableKey' => null,  // Will be provided via postMessage
                     'apiUrl' => config('app.url'),
                     'error' => 'Account not found',
                 ]);
@@ -173,8 +174,14 @@ class PaymentController extends Controller
             }
 
             // Account found and configured
+            // Get the appropriate publishable key based on test mode
+            $publishableKey = $account->paytr_test_mode
+                ? $account->publishable_key_test
+                : $account->publishable_key_live;
+
             return view('payments.iframe', [
                 'locationId' => $account->location_id,
+                'publishableKey' => $publishableKey,
                 'apiUrl' => config('app.url'),
             ]);
         }
@@ -184,6 +191,7 @@ class PaymentController extends Controller
 
         return view('payments.iframe', [
             'locationId' => null,
+            'publishableKey' => null,  // Will be provided via postMessage
             'apiUrl' => config('app.url'),
         ]);
     }
@@ -199,7 +207,19 @@ class PaymentController extends Controller
         $account = $this->getAccountFromRequest($request);
 
         if (!$account) {
-            return response()->json(['error' => 'Invalid account'], 401);
+            $publishableKey = $request->header('X-Publishable-Key');
+            $locationId = $request->header('X-Location-Id') ?: $request->get('locationId');
+
+            Log::warning('Payment initialization failed - authentication error', [
+                'has_publishable_key' => !empty($publishableKey),
+                'has_location_id' => !empty($locationId),
+                'ip' => $request->ip(),
+            ]);
+
+            return response()->json([
+                'error' => 'Authentication failed',
+                'message' => 'Invalid publishable key or location ID. Please check your credentials.',
+            ], 401);
         }
 
         // Validation is automatically handled by InitializePaymentRequest
@@ -525,18 +545,71 @@ class PaymentController extends Controller
 
     /**
      * Get HL account from request authentication
+     * Supports both publishable key (preferred) and location ID (fallback) authentication
      */
     protected function getAccountFromRequest(Request $request): ?HLAccount
     {
-        // In production, this would verify HighLevel's signature/token
-        // For now, we'll use location_id from the request
-        $locationId = $request->header('X-Location-Id') ?: $request->get('locationId');
+        // PRIMARY AUTHENTICATION: Publishable Key
+        // This is more secure as it's account-specific and can be rotated
+        $publishableKey = $request->header('X-Publishable-Key');
 
-        if (!$locationId) {
-            Log::warning(sprintf('%s', $locationId));
+        if ($publishableKey) {
+            Log::info('Authenticating with publishable key', [
+                'key_prefix' => substr($publishableKey, 0, 8) . '...',
+                'ip' => $request->ip(),
+            ]);
+
+            $account = HLAccount::where(function($query) use ($publishableKey) {
+                $query->where('publishable_key_live', $publishableKey)
+                      ->orWhere('publishable_key_test', $publishableKey);
+            })
+            ->where('is_active', true)
+            ->first();
+
+            if ($account) {
+                Log::info('Account authenticated via publishable key', [
+                    'account_id' => $account->id,
+                    'location_id' => $account->location_id,
+                ]);
+                return $account;
+            }
+
+            Log::warning('Invalid publishable key', [
+                'key_prefix' => substr($publishableKey, 0, 8) . '...',
+                'ip' => $request->ip(),
+            ]);
+
             return null;
         }
 
-        return HLAccount::where('location_id', $locationId)->first();
+        // FALLBACK AUTHENTICATION: Location ID
+        // Less secure but maintained for backward compatibility
+        $locationId = $request->header('X-Location-Id') ?: $request->get('locationId');
+
+        if ($locationId) {
+            Log::info('Authenticating with location ID (fallback)', [
+                'location_id' => $locationId,
+                'ip' => $request->ip(),
+            ]);
+
+            $account = HLAccount::where('location_id', $locationId)
+                ->where('is_active', true)
+                ->first();
+
+            if ($account) {
+                Log::info('Account authenticated via location ID', [
+                    'account_id' => $account->id,
+                ]);
+                return $account;
+            }
+        }
+
+        Log::warning('No valid authentication method provided', [
+            'has_publishable_key' => !empty($publishableKey),
+            'has_location_id' => !empty($locationId),
+            'ip' => $request->ip(),
+        ]);
+
+        return null;
     }
 }

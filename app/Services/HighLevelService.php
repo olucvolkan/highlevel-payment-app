@@ -242,18 +242,28 @@ class HighLevelService
     }
 
 
-    public function connectConfig(HLAccount $account, array $config): array
+    public function connectConfig(HLAccount $account, array $config = []): array
     {
         try {
             // Build payload according to HighLevel API spec
             // Note: locationId is sent as query parameter, NOT in body
             $payload = [];
 
+            // Get API keys from account (generated during OAuth)
+            // These keys are used by HighLevel to authenticate API requests and embed in iframes
+            $accountKeys = $account->getApiKeys();
+
             // Support both test and live mode configuration in a single call
+            // Use provided config if available, otherwise use account's generated keys
             if (isset($config['testMode'])) {
                 $payload['test'] = [
                     'apiKey' => $config['testMode']['apiKey'],
                     'publishableKey' => $config['testMode']['publishableKey'],
+                ];
+            } elseif (!empty($accountKeys['test'])) {
+                $payload['test'] = [
+                    'apiKey' => $accountKeys['test']['apiKey'],
+                    'publishableKey' => $accountKeys['test']['publishableKey'],
                 ];
             }
 
@@ -261,6 +271,11 @@ class HighLevelService
                 $payload['live'] = [
                     'apiKey' => $config['liveMode']['apiKey'],
                     'publishableKey' => $config['liveMode']['publishableKey'],
+                ];
+            } elseif (!empty($accountKeys['live'])) {
+                $payload['live'] = [
+                    'apiKey' => $accountKeys['live']['apiKey'],
+                    'publishableKey' => $accountKeys['live']['publishableKey'],
                 ];
             }
 
@@ -295,6 +310,8 @@ class HighLevelService
                 'has_test_mode' => isset($payload['test']),
                 'has_live_mode' => isset($payload['live']),
                 'payload_keys' => array_keys($payload),
+                'using_account_keys' => empty($config),
+                'account_has_api_keys' => $account->hasApiKeys(),
                 'full_url' => $url,
                 'method' => 'POST',
             ]);

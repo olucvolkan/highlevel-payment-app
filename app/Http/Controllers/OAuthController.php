@@ -308,6 +308,23 @@ class OAuthController extends Controller
             'needs_exchange' => $account->needsLocationTokenExchange(),
         ]);
 
+        // Generate API keys if not already present (for HighLevel payment config)
+        if (!$account->hasApiKeys()) {
+            Log::info('Generating API keys for new account', [
+                'account_id' => $account->id,
+                'location_id' => $locationId,
+            ]);
+
+            $keys = $account->generateApiKeys();
+
+            Log::info('API keys generated successfully', [
+                'account_id' => $account->id,
+                'location_id' => $locationId,
+                'has_live_keys' => !empty($keys['api_key_live']),
+                'has_test_keys' => !empty($keys['api_key_test']),
+            ]);
+        }
+
         return $account;
     }
 
