@@ -17,7 +17,6 @@ class HLAccount extends Model
         'location_id',
         'company_id',
         'user_id',
-        'publishable_key',
         'access_token',
         'refresh_token',
         'token_expires_at',

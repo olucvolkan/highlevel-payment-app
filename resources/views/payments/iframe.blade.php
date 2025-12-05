@@ -90,9 +90,11 @@
 
     <script>
         // Payment configuration
+        // NOTE: locationId and publishableKey will ONLY come from HighLevel via postMessage
+        // They are NOT passed from server-side
         const config = {
-            locationId: '{{ $locationId ?? "" }}',  // Can be empty, will come via postMessage
-            publishableKey: '{{ $publishableKey ?? "" }}',  // Publishable key for authentication
+            locationId: null,  // Will be set by payment_initiate_props event
+            publishableKey: null,  // Will be set by payment_initiate_props event
             apiUrl: '{{ $apiUrl }}',
             iframeUrl: null,
             merchantOid: null,
@@ -101,10 +103,9 @@
             currency: null
         };
 
-        console.log('Payment iframe loaded with config:', {
-            locationId: config.locationId || 'Will receive via postMessage',
-            publishableKey: config.publishableKey ? '***' + config.publishableKey.slice(-8) : 'Will receive via postMessage',
-            apiUrl: config.apiUrl
+        console.log('Payment iframe loaded. Waiting for payment_initiate_props from HighLevel...', {
+            apiUrl: config.apiUrl,
+            note: 'locationId and publishableKey will be received via postMessage'
         });
 
         // HighLevel allowed origins for postMessage security
@@ -175,25 +176,25 @@
                 return;
             }
 
-            console.log('Received payment_initiate_props from HighLevel:', paymentData);
+            console.log('✅ Received payment_initiate_props from HighLevel:', paymentData);
             paymentInitialized = true;
 
-            // Extract locationId if present (HighLevel may send it here)
-            if (paymentData.locationId && !config.locationId) {
-                console.log('LocationId received via postMessage:', paymentData.locationId);
-                config.locationId = paymentData.locationId;
-            }
-
-            // Extract publishableKey if present (HighLevel sends this for authentication)
-            if (paymentData.publishableKey && !config.publishableKey) {
-                console.log('PublishableKey received via postMessage');
-                config.publishableKey = paymentData.publishableKey;
-            }
-
-            // Update config with received data
+            // Extract all required payment data from HighLevel
+            // publishableKey: This is OUR key that we sent to HighLevel in connectConfig,
+            // now HighLevel is sending it BACK to us for authentication
+            config.publishableKey = paymentData.publishableKey;
+            config.locationId = paymentData.locationId;
             config.amount = paymentData.amount;
             config.currency = paymentData.currency || 'TRY';
             config.transactionId = paymentData.transactionId;
+
+            console.log('Payment data extracted:', {
+                hasPublishableKey: !!config.publishableKey,
+                hasLocationId: !!config.locationId,
+                amount: config.amount,
+                currency: config.currency,
+                transactionId: config.transactionId
+            });
 
             // Update UI to show payment info
             if (paymentData.amount && document.querySelector('.amount')) {
@@ -211,21 +212,26 @@
 
         // Initialize PayTR payment via backend
         function initializePayTRPayment(paymentData) {
-            // Check if we have publishableKey (primary authentication)
+            // Validate required fields from HighLevel
             if (!config.publishableKey) {
-                console.error('Cannot initialize payment: publishableKey is missing');
+                console.error('❌ Cannot initialize: publishableKey missing from payment_initiate_props');
                 loading.style.display = 'none';
                 errorDiv.style.display = 'block';
-                errorDiv.querySelector('p').textContent = 'Configuration error: Publishable Key missing';
-                notifyPaymentError('Publishable Key not provided');
+                errorDiv.querySelector('p').textContent = 'Authentication error: Publishable Key not received from HighLevel';
+                notifyPaymentError('Publishable Key not provided by HighLevel');
                 return;
             }
 
-            // Check if we have locationId (fallback, may not be needed with publishable key)
             if (!config.locationId) {
-                console.warn('LocationId is missing, will authenticate using publishable key only');
+                console.error('❌ Cannot initialize: locationId missing from payment_initiate_props');
+                loading.style.display = 'none';
+                errorDiv.style.display = 'block';
+                errorDiv.querySelector('p').textContent = 'Configuration error: Location ID not received from HighLevel';
+                notifyPaymentError('Location ID not provided by HighLevel');
+                return;
             }
 
+            console.log('✅ All required data present, initializing payment...');
             loading.style.display = 'flex';
             errorDiv.style.display = 'none';
 
@@ -391,6 +397,33 @@
         // Send ready notification immediately when page loads
         // DON'T wait for iframe to load - HighLevel needs to know we're ready first
         notifyParentReady();
+
+        // Set a timeout to warn if payment_initiate_props doesn't arrive
+        // This helps identify testing issues (direct browser access vs iframe embed)
+        setTimeout(function() {
+            if (!paymentInitialized) {
+                console.warn('⚠️ payment_initiate_props not received after 30 seconds');
+                console.warn('This usually means:');
+                console.warn('1. You are accessing /payments/page directly (not embedded in HighLevel)');
+                console.warn('2. HighLevel failed to send payment data');
+                console.warn('3. postMessage communication is blocked');
+                console.warn('');
+                console.warn('To test properly:');
+                console.warn('- Open /test-payment.html (mock parent simulator)');
+                console.warn('- OR test via real HighLevel payment flow');
+
+                // Show user-friendly message
+                const amountDiv = document.querySelector('.amount');
+                const transactionDiv = document.querySelector('.transaction-id');
+                if (amountDiv) {
+                    amountDiv.textContent = 'Waiting for payment data...';
+                }
+                if (transactionDiv) {
+                    transactionDiv.textContent = 'This page must be opened from HighLevel';
+                    transactionDiv.style.color = '#e74c3c';
+                }
+            }
+        }, 30000);
 
         // The PayTR iframe will be loaded AFTER we receive payment_initiate_props from HighLevel
         // and successfully call /api/payments/initialize

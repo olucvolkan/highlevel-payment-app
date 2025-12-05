@@ -156,10 +156,8 @@ class PaymentController extends Controller
                 ]);
 
                 // Account not found, but load iframe anyway
-                // LocationID might come via postMessage
+                // LocationID and publishableKey will come via postMessage
                 return view('payments.iframe', [
-                    'locationId' => null,
-                    'publishableKey' => null,  // Will be provided via postMessage
                     'apiUrl' => config('app.url'),
                     'error' => 'Account not found',
                 ]);
@@ -174,14 +172,9 @@ class PaymentController extends Controller
             }
 
             // Account found and configured
-            // Get the appropriate publishable key based on test mode
-            $publishableKey = $account->paytr_test_mode
-                ? $account->publishable_key_test
-                : $account->publishable_key_live;
-
+            // NOTE: Don't send locationId or publishableKey from server
+            // HighLevel will provide these via postMessage in payment_initiate_props event
             return view('payments.iframe', [
-                'locationId' => $account->location_id,
-                'publishableKey' => $publishableKey,
                 'apiUrl' => config('app.url'),
             ]);
         }
@@ -190,8 +183,6 @@ class PaymentController extends Controller
         Log::info('Payment page without locationId - waiting for postMessage');
 
         return view('payments.iframe', [
-            'locationId' => null,
-            'publishableKey' => null,  // Will be provided via postMessage
             'apiUrl' => config('app.url'),
         ]);
     }

@@ -249,9 +249,26 @@ class HighLevelService
             // Note: locationId is sent as query parameter, NOT in body
             $payload = [];
 
-            // Get API keys from account (generated during OAuth)
-            // These keys are used by HighLevel to authenticate API requests and embed in iframes
+            // Get API keys from account (generated during OAuth by generateApiKeys())
+            // IMPORTANT: These keys will be RETURNED to us by HighLevel in payment_initiate_props
+            // This is a "round-trip" pattern:
+            //   1. WE generate keys (OAuth)
+            //   2. WE send keys TO HighLevel (connectConfig)
+            //   3. HighLevel stores keys
+            //   4. HighLevel sends keys BACK to us (payment_initiate_props)
+            //   5. WE use keys to authenticate (PaymentController::initialize)
             $accountKeys = $account->getApiKeys();
+
+            Log::info('Preparing connectConfig with account keys', [
+                'account_id' => $account->id,
+                'location_id' => $account->location_id,
+                'has_live_keys' => !empty($accountKeys['live']['apiKey']) && !empty($accountKeys['live']['publishableKey']),
+                'has_test_keys' => !empty($accountKeys['test']['apiKey']) && !empty($accountKeys['test']['publishableKey']),
+                'live_api_key_prefix' => !empty($accountKeys['live']['apiKey']) ? substr($accountKeys['live']['apiKey'], 0, 16) . '...' : 'N/A',
+                'live_pub_key_prefix' => !empty($accountKeys['live']['publishableKey']) ? substr($accountKeys['live']['publishableKey'], 0, 16) . '...' : 'N/A',
+                'test_api_key_prefix' => !empty($accountKeys['test']['apiKey']) ? substr($accountKeys['test']['apiKey'], 0, 16) . '...' : 'N/A',
+                'test_pub_key_prefix' => !empty($accountKeys['test']['publishableKey']) ? substr($accountKeys['test']['publishableKey'], 0, 16) . '...' : 'N/A',
+            ]);
 
             // Support both test and live mode configuration in a single call
             // Use provided config if available, otherwise use account's generated keys
