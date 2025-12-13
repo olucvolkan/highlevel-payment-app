@@ -543,16 +543,15 @@ class PaymentController extends Controller
         // PRIMARY AUTHENTICATION: Publishable Key
         // This is more secure as it's account-specific and can be rotated
         $publishableKey = $request->header('X-Publishable-Key');
-
-        if ($publishableKey) {
+        $location = $request->header('X-Location');
+        if ($publishableKey && $location) {
             Log::info('Authenticating with publishable key', [
                 'key_prefix' => substr($publishableKey, 0, 8) . '...',
                 'ip' => $request->ip(),
             ]);
 
-            $account = HLAccount::where(function($query) use ($publishableKey) {
-                $query->where('publishable_key_live', $publishableKey)
-                      ->orWhere('publishable_key_test', $publishableKey);
+            $account = HLAccount::where(function($query) use ($location) {
+                $query->where('location_id', $location);
             })
             ->where('is_active', true)
             ->first();
