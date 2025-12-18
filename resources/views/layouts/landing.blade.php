@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="PayTR ve iyzico destekli HighLevel yerel ödeme entegrasyonu. Türkiye'ye özel güvenli, hızlı ve şeffaf ödeme çözümü.">
-    <title>PayTR HighLevel Integration - Yerel Ödeme Sistemi</title>
+    <meta name="description" content="PayTR destekli yerel ödeme entegrasyonu. Türkiye'ye özel güvenli, hızlı ve şeffaf ödeme çözümü.">
+    <title>PayTR Ödeme Entegrasyonu - Yerel Ödeme Sistemi</title>
 
     <!-- CSRF Token -->
     <meta name="csrf-token" content="{{ csrf_token() }}">

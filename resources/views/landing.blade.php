@@ -6,16 +6,15 @@
 <section class="bg-white py-20 px-4">
     <div class="max-w-4xl mx-auto text-center">
         <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-6 leading-tight">
-            Yerel Ödemeleri <span class="text-primary">HighLevel</span> İçinde<br>Kolayca Yönetin
+            Türkiye'den Ödeme Almanın<br>En Kolay Yolu
         </h1>
         <p class="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto mb-8 leading-relaxed">
-            PayTR ve iyzico ile güvenli, hızlı ve şeffaf ödeme deneyimi.<br>
+            PayTR ile güvenli, hızlı ve şeffaf ödeme deneyimi.<br>
             Tek entegrasyonla tüm Türkiye'ye satış yapın.
         </p>
-        <a href="https://marketplace.gohighlevel.com/your-app"
-           target="_blank"
+        <a href="#features"
            class="inline-block bg-accent hover:bg-accent/90 text-white px-8 py-4 rounded-lg text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5">
-            HighLevel Marketplace'te Gör →
+            Özellikleri Keşfet →
         </a>
     </div>
 </section>
@@ -28,34 +27,18 @@
             <p class="text-gray-600 text-lg">Güvenilir yerel altyapılarla çalışır</p>
         </div>
 
-        <div class="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+        <div class="max-w-2xl mx-auto">
             <!-- PayTR Card -->
             <div class="bg-white rounded-xl shadow-md p-8 text-center hover:shadow-lg transition-shadow">
                 <div class="h-16 mb-6 flex items-center justify-center">
-                    <!-- Logo Placeholder - Sen sonra ekleyeceksin -->
                     <div class="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-3 rounded-lg text-xl font-bold">
                         PayTR
                     </div>
                 </div>
-                <h3 class="text-xl font-semibold text-gray-900 mb-3">PayTR</h3>
+                <h3 class="text-xl font-semibold text-gray-900 mb-3">PayTR Ödeme Altyapısı</h3>
                 <p class="text-gray-600 leading-relaxed">
                     Hızlı aktivasyon ve gizli ücret olmadan işlem başına komisyon modeli.
-                    Türkiye'nin önde gelen ödeme altyapısı.
-                </p>
-            </div>
-
-            <!-- iyzico Card -->
-            <div class="bg-white rounded-xl shadow-md p-8 text-center hover:shadow-lg transition-shadow">
-                <div class="h-16 mb-6 flex items-center justify-center">
-                    <!-- Logo Placeholder - Sen sonra ekleyeceksin -->
-                    <div class="bg-gradient-to-r from-orange-500 to-red-600 text-white px-6 py-3 rounded-lg text-xl font-bold">
-                        iyzico
-                    </div>
-                </div>
-                <h3 class="text-xl font-semibold text-gray-900 mb-3">iyzico</h3>
-                <p class="text-gray-600 leading-relaxed">
-                    PCI DSS sertifikalı, taksitli ödeme desteğiyle güvenli altyapı.
-                    Her ölçekte işletme için ideal çözüm.
+                    Türkiye'nin önde gelen ödeme altyapısı ile güvenli tahsilat yapın.
                 </p>
             </div>
         </div>
@@ -66,8 +49,8 @@
 <section class="py-20 px-4 bg-white">
     <div class="max-w-6xl mx-auto">
         <div class="text-center mb-16">
-            <h2 class="text-3xl font-semibold text-gray-900 mb-3">Neden Bu Entegrasyon?</h2>
-            <p class="text-gray-600 text-lg">HighLevel'da yerel ödeme almak hiç bu kadar kolay olmamıştı</p>
+            <h2 class="text-3xl font-semibold text-gray-900 mb-3">Neden PayTR Entegrasyonu?</h2>
+            <p class="text-gray-600 text-lg">Türkiye'den ödeme almak hiç bu kadar kolay olmamıştı</p>
         </div>
 
         <div class="grid md:grid-cols-3 gap-8">
@@ -123,7 +106,7 @@
                     </svg>
                 </div>
                 <h3 class="text-xl font-semibold text-gray-900 mb-2">Detaylı Raporlar</h3>
-                <p class="text-gray-600">Tüm ödemelerinizi HighLevel içinde takip edin. Şeffaf raporlama.</p>
+                <p class="text-gray-600">Tüm ödemelerinizi merkezi panelde takip edin. Şeffaf raporlama.</p>
             </div>
 
             <!-- Feature 6 -->
@@ -156,8 +139,8 @@
                         1
                     </div>
                     <div class="mt-6">
-                        <h3 class="text-xl font-semibold text-gray-900 mb-3">Marketplace'ten Yükleyin</h3>
-                        <p class="text-gray-600">HighLevel Marketplace'ten uygulamayı tek tıkla hesabınıza ekleyin.</p>
+                        <h3 class="text-xl font-semibold text-gray-900 mb-3">Entegrasyonu Aktif Edin</h3>
+                        <p class="text-gray-600">Uygulamayı tek tıkla hesabınıza ekleyin ve OAuth ile bağlayın.</p>
                     </div>
                 </div>
             </div>
@@ -170,7 +153,7 @@
                     </div>
                     <div class="mt-6">
                         <h3 class="text-xl font-semibold text-gray-900 mb-3">Ayarlarınızı Yapın</h3>
-                        <p class="text-gray-600">PayTR veya iyzico hesap bilgilerinizi girin. Hazırsınız!</p>
+                        <p class="text-gray-600">PayTR hesap bilgilerinizi girin. Hazırsınız!</p>
                     </div>
                 </div>
             </div>
@@ -195,16 +178,15 @@
 <section class="bg-gradient-to-r from-primary to-blue-700 text-white py-20 px-4">
     <div class="max-w-4xl mx-auto text-center">
         <h2 class="text-3xl md:text-4xl font-bold mb-6">
-            HighLevel'de Ödemelerinizi Basitleştirin
+            Ödemelerinizi Basitleştirin
         </h2>
         <p class="text-xl text-white/90 mb-10 leading-relaxed max-w-2xl mx-auto">
-            Yerel altyapılarla güvenli, kolay ve şeffaf tahsilat için hemen başlayın.
+            Türkiye'nin güvenilir ödeme altyapısı ile kolay ve şeffaf tahsilat için hemen başlayın.
             Binlerce işletme güveniyor.
         </p>
-        <a href="https://marketplace.gohighlevel.com/your-app"
-           target="_blank"
+        <a href="#features"
            class="inline-block bg-white text-primary hover:bg-gray-100 font-semibold px-10 py-4 rounded-lg text-lg shadow-xl hover:shadow-2xl transition-all duration-200 transform hover:-translate-y-0.5">
-            Uygulamayı Şimdi Yükle →
+            Hemen Başlayın →
         </a>
         <p class="mt-6 text-white/80 text-sm">
             ✓ Kredi kartı gerekmez &nbsp;&nbsp;|&nbsp;&nbsp; ✓ 5 dakikada kurulum &nbsp;&nbsp;|&nbsp;&nbsp; ✓ 7/24 destek
@@ -216,13 +198,13 @@
 <footer class="bg-gray-900 text-gray-400 py-12 px-4">
     <div class="max-w-6xl mx-auto text-center">
         <p class="text-lg mb-4">
-            <span class="text-white font-semibold">PayTR HighLevel Integration</span>
+            <span class="text-white font-semibold">PayTR Ödeme Entegrasyonu</span>
         </p>
         <p class="text-sm">
-            Türkiye'nin yerel ödeme altyapıları ile HighLevel CRM entegrasyonu
+            Türkiye'nin güvenilir ödeme altyapısı ile CRM entegrasyonu
         </p>
         <div class="mt-6 text-xs text-gray-500">
-            <p>© {{ date('Y') }} PayTR HighLevel Integration. Tüm hakları saklıdır.</p>
+            <p>© {{ date('Y') }} PayTR Ödeme Entegrasyonu. Tüm hakları saklıdır.</p>
         </div>
     </div>
 </footer>
