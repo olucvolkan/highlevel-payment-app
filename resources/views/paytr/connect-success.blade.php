@@ -42,7 +42,7 @@
                         </h3>
                         <div class="mt-2 text-sm text-green-700">
                             <ul class="list-disc list-inside space-y-1">
-                                <li>Your HighLevel account is now connected to PayTR</li>
+                                <li>Your CRM account is now connected to PayTR</li>
                                 <li>You can start accepting payments immediately</li>
                                 <li>Payment transactions will appear in your PayTR dashboard</li>
                             </ul>
@@ -61,7 +61,7 @@
                     </div>
                     <div class="ml-3">
                         <p class="text-sm text-blue-700">
-                            <strong>Pro Tip:</strong> You can manage your PayTR settings anytime from the HighLevel Settings page or by visiting the <a href="{{ route('paytr.setup') }}" class="underline hover:text-blue-900">PayTR Setup page</a>.
+                            <strong>Pro Tip:</strong> You can manage your PayTR settings anytime from the CRM Settings page or by visiting the <a href="{{ route('paytr.setup') }}" class="underline hover:text-blue-900">PayTR Setup page</a>.
                         </p>
                     </div>
                 </div>
@@ -69,12 +69,12 @@
 
             <!-- Action Button -->
             <div>
-                <a
-                    href="https://app.gohighlevel.com"
+                <button
+                    onclick="closeWindow()"
                     class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 >
-                    Return to HighLevel
-                </a>
+                    Return to CRM
+                </button>
             </div>
 
             <!-- Help Text -->
@@ -87,10 +87,23 @@
     </div>
 
     <script>
+        function closeWindow() {
+            // Try to close the window
+            if (window.opener) {
+                window.close();
+            } else if (window.parent && window.parent !== window) {
+                // If in iframe, notify parent
+                window.parent.postMessage({
+                    type: 'paytr_connected',
+                    data: { success: true }
+                }, '*');
+            }
+        }
+
         // Auto-close this window after 5 seconds if opened in popup
         if (window.opener) {
             setTimeout(() => {
-                window.close();
+                closeWindow();
             }, 5000);
         }
     </script>

@@ -142,7 +142,7 @@
         <div class="error-icon">✗</div>
         <h1>Integration Failed</h1>
         <p class="message">
-            We encountered an issue while setting up your PayTR integration with HighLevel.
+            We encountered an issue while setting up your PayTR payment integration.
         </p>
         
         @if($error)
@@ -155,8 +155,8 @@
         <div class="troubleshooting">
             <h3>Troubleshooting Steps:</h3>
             <ol>
-                <li>Ensure you have the necessary permissions in your HighLevel account</li>
-                <li>Check that your HighLevel location is properly configured</li>
+                <li>Ensure you have the necessary permissions in your CRM account</li>
+                <li>Check that your location is properly configured</li>
                 <li>Verify your internet connection is stable</li>
                 <li>Try the integration process again</li>
                 <li>If the problem persists, contact our support team</li>
@@ -172,7 +172,7 @@
         <div class="contact-info">
             <strong>Need Help?</strong><br>
             Email: support@example.com<br>
-            Include your HighLevel location ID and this error message for faster assistance.
+            Include your location ID and this error message for faster assistance.
         </div>
     </div>
 
@@ -197,8 +197,10 @@
             if (window.opener) {
                 window.close();
             } else {
-                // Fallback - redirect to HighLevel
-                window.location.href = 'https://app.gohighlevel.com';
+                // Fallback - close iframe or redirect to dashboard
+                if (window.parent && window.parent !== window) {
+                    window.parent.postMessage({ type: 'close_integration' }, '*');
+                }
             }
         }
     </script>

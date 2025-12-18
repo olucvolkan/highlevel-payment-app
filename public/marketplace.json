@@ -1,6 +1,7 @@
 {
   "name": "PayTR - Yerel Ödeme",
   "slug": "paytr-yerel-odeme",
+  "tagline": "Accept Turkish payments seamlessly with PayTR integration",
   "type": "PAYMENTS",
   "version": "1.0.0",
   "integration_type": "payment_provider",
@@ -8,7 +9,7 @@
 
   "icon": "https://yerelodeme-payment-app-master-a645wy.laravel.cloud/images/paytr-logo.png",
   "description": "Accept payments from Turkish customers using PayTR payment gateway. Türk müşterilerden PayTR ile ödeme kabul edin.",
-  "longDescription": "PayTR integration for HighLevel allows you to accept online payments from Turkish customers. Supports credit/debit cards, installment payments, and recurring subscriptions. Full PayTR Direct API integration with iframe payment pages.",
+  "longDescription": "Complete PayTR payment integration allowing you to accept online payments from Turkish customers. Supports credit/debit cards, installment payments, and recurring subscriptions. Full PayTR Direct API integration with secure iframe payment pages and real-time transaction processing.",
   "categories": ["PAYMENTS"],
 
   "auth": {
@@ -30,16 +31,6 @@
 
   "endpoints": {
     "integration": "https://yerelodeme-payment-app-master-a645wy.laravel.cloud/api/highlevel/provider"
-  },
-
-  "settings": {
-    "pages": [
-      {
-        "title": "Settings",
-        "path": "/settings",
-        "iframe": "https://yerelodeme-payment-app-master-a645wy.laravel.cloud/paytr/setup?iframe=1"
-      }
-    ]
   },
 
   "webhooks": {

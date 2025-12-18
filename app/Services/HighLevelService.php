@@ -47,14 +47,27 @@ class HighLevelService
                 'headers' => $headers,
             ];
 
-            $response = $client->post($this->oauthUrl . '/oauth/token', $options);
-            $body = json_decode($response->getBody()->getContents(), true);
+            Log::info('[DEBUG] Sending initial token exchange request', [
+                'url' => $this->oauthUrl . '/oauth/token',
+                'requested_user_type' => $userType,
+                'has_code' => !empty($code),
+                'code_length' => strlen($code),
+            ]);
 
-            Log::info('HighLevel token exchange successful', [
+            $response = $client->post($this->oauthUrl . '/oauth/token', $options);
+            $responseBody = $response->getBody()->getContents();
+            $body = json_decode($responseBody, true);
+
+            Log::info('[DEBUG] HighLevel token exchange successful', [
                 'requested_user_type' => $userType,
                 'response_user_type' => $body['userType'] ?? 'Unknown',
                 'has_access_token' => isset($body['access_token']),
+                'has_company_id' => isset($body['companyId']),
+                'has_location_id' => isset($body['locationId']),
+                'company_id' => $body['companyId'] ?? 'NOT_PROVIDED',
+                'location_id' => $body['locationId'] ?? 'NOT_PROVIDED',
                 'response_keys' => array_keys($body),
+                'full_response' => $responseBody,
             ]);
 
             return $body;
@@ -87,6 +100,9 @@ class HighLevelService
      * - Company tokens: Access company-level resources
      * - Location tokens: Access location-specific resources (required for custom payment providers)
      *
+     * IMPORTANT: HighLevel can infer the companyId from the Company access token,
+     * so we only need to send the locationId in the request payload.
+     *
      * @param HLAccount $account Account with company access token
      * @param string $locationId Target location ID
      * @return array Token response or error details
@@ -98,15 +114,28 @@ class HighLevelService
                 throw new \InvalidArgumentException('Access token is required for token exchange');
             }
 
-            if (!$account->company_id) {
-                throw new \InvalidArgumentException('Company ID is required for token exchange');
+            if (empty($locationId)) {
+                throw new \InvalidArgumentException('Location ID is required for token exchange');
             }
 
-            Log::info('Exchanging Company token for Location token', [
+            // Validate that location_id is actually a location ID (not a company ID)
+            // Location IDs in HighLevel typically start with specific prefixes
+            if (!$this->isValidLocationId($locationId)) {
+                Log::warning('[DEBUG] Potentially invalid location_id format', [
+                    'location_id' => $locationId,
+                    'location_id_length' => strlen($locationId),
+                    'account_id' => $account->id,
+                ]);
+            }
+
+            Log::info('[DEBUG] Exchanging Company token for Location token', [
                 'account_id' => $account->id,
-                'company_id' => $account->company_id,
+                'company_id' => $account->company_id ?? 'NOT_SET',
                 'location_id' => $locationId,
                 'current_token_type' => $account->token_type ?? 'Unknown',
+                'has_access_token' => !empty($account->access_token),
+                'access_token_prefix' => substr($account->access_token ?? '', 0, 20) . '...',
+                'location_id_length' => strlen($locationId),
             ]);
 
             $client = new Client();
@@ -118,16 +147,34 @@ class HighLevelService
                 'Authorization' => 'Bearer ' . $account->access_token,
             ];
 
+            // CRITICAL FIX: Only send locationId in the payload
+            // HighLevel infers companyId from the Company access token
+            // Sending incorrect or missing companyId causes "Location not found" errors
             $options = [
                 'form_params' => [
-                    'companyId' => $account->company_id,
                     'locationId' => $locationId,
                 ],
                 'headers' => $headers,
             ];
 
+            Log::info('[DEBUG] Sending location token exchange request', [
+                'url' => $this->oauthUrl . '/oauth/locationToken',
+                'method' => 'POST',
+                'location_id' => $locationId,
+                'form_params' => $options['form_params'],
+                'headers' => array_keys($headers),
+                'company_id_in_account' => $account->company_id ?? 'NOT_SET',
+            ]);
+
             $response = $client->post($this->oauthUrl . '/oauth/locationToken', $options);
-            $data = json_decode($response->getBody()->getContents(), true);
+            $responseBody = $response->getBody()->getContents();
+            $data = json_decode($responseBody, true);
+
+            Log::info('[DEBUG] Location token exchange API response', [
+                'status_code' => $response->getStatusCode(),
+                'response_body' => $responseBody,
+                'parsed_data' => $data,
+            ]);
 
             Log::info('Location token exchange successful', [
                 'account_id' => $account->id,
@@ -144,28 +191,103 @@ class HighLevelService
                 $companyToken = $account->company_access_token;
             }
 
-            // Update account with location token
-            $account->update([
+            // Prepare update data
+            $updateData = [
                 'company_access_token' => $companyToken,
                 'location_access_token' => $data['access_token'],
                 'location_refresh_token' => $data['refresh_token'] ?? null,
                 'token_type' => 'Location',
                 'token_expires_at' => now()->addSeconds($data['expires_in'] ?? 3600),
+            ];
+
+            // If company_id is provided in the response and not already set, store it
+            // This can happen when HighLevel returns company info in the location token response
+            if (isset($data['companyId']) && empty($account->company_id)) {
+                $updateData['company_id'] = $data['companyId'];
+                Log::info('[DEBUG] Storing company_id from location token response', [
+                    'account_id' => $account->id,
+                    'company_id' => $data['companyId'],
+                ]);
+            }
+
+            // Update account with location token
+            $account->update($updateData);
+
+            Log::info('[DEBUG] Account updated with location token', [
+                'account_id' => $account->id,
+                'location_id' => $locationId,
+                'has_location_access_token' => !empty($account->location_access_token),
+                'has_company_access_token' => !empty($account->company_access_token),
+                'has_company_id' => !empty($account->company_id),
             ]);
 
             return $data;
 
         } catch (GuzzleException $e) {
-            Log::error('Location token exchange failed', [
+            $responseBody = null;
+            $statusCode = $e->getCode();
+            $parsedResponse = null;
+
+            // Try to extract response body from Guzzle exception
+            if ($e->hasResponse()) {
+                $responseBody = (string) $e->getResponse()->getBody();
+                $statusCode = $e->getResponse()->getStatusCode();
+
+                // Try to parse JSON response for better error messages
+                try {
+                    $parsedResponse = json_decode($responseBody, true);
+                } catch (\Exception $parseException) {
+                    // Response is not JSON, keep as string
+                }
+            }
+
+            // Build detailed error context
+            $errorContext = [
                 'account_id' => $account->id ?? null,
                 'location_id' => $locationId,
-                'error' => $e->getMessage(),
-                'code' => $e->getCode(),
-            ]);
+                'company_id' => $account->company_id ?? 'NOT_SET',
+                'error_message' => $e->getMessage(),
+                'status_code' => $statusCode,
+                'response_body' => $responseBody,
+                'parsed_response' => $parsedResponse,
+                'exception_class' => get_class($e),
+                'request_url' => $this->oauthUrl . '/oauth/locationToken',
+                'request_payload' => [
+                    'locationId' => $locationId,
+                ],
+                'has_access_token' => !empty($account->access_token),
+                'access_token_length' => strlen($account->access_token ?? ''),
+                'token_type' => $account->token_type ?? 'Unknown',
+            ];
+
+            // Check for common error patterns and provide actionable insights
+            $userFriendlyError = 'Token exchange failed';
+            if ($statusCode === 400) {
+                if ($parsedResponse && isset($parsedResponse['message'])) {
+                    if (str_contains($parsedResponse['message'], 'Location not found')) {
+                        $errorContext['diagnosis'] = 'The location_id provided does not exist in HighLevel or the Company token does not have access to this location';
+                        $userFriendlyError = 'Unable to access the specified location. Please ensure the integration is installed in the correct HighLevel location.';
+                    } elseif (str_contains($parsedResponse['message'], 'Invalid token')) {
+                        $errorContext['diagnosis'] = 'The Company access token is invalid or expired';
+                        $userFriendlyError = 'Authentication token is invalid. Please reinstall the integration.';
+                    }
+                }
+            } elseif ($statusCode === 401) {
+                $errorContext['diagnosis'] = 'Unauthorized - Company token may be invalid or lacks required scopes';
+                $userFriendlyError = 'Authentication failed. Please reinstall the integration.';
+            } elseif ($statusCode === 403) {
+                $errorContext['diagnosis'] = 'Forbidden - Company token lacks permission to access this location';
+                $userFriendlyError = 'Permission denied to access this location.';
+            }
+
+            Log::error('[DEBUG] Location token exchange failed - Guzzle Exception', $errorContext);
 
             return [
-                'error' => 'Token exchange failed: ' . $e->getMessage(),
-                'status' => $e->getCode(),
+                'error' => $userFriendlyError,
+                'technical_error' => $e->getMessage(),
+                'status' => $statusCode,
+                'response_body' => $responseBody,
+                'parsed_response' => $parsedResponse,
             ];
 
         } catch (\Exception $e) {
@@ -173,10 +295,15 @@ class HighLevelService
                 'error' => $e->getMessage(),
                 'account_id' => $account->id ?? null,
                 'location_id' => $locationId,
+                'company_id' => $account->company_id ?? 'NOT_SET',
+                'exception_class' => get_class($e),
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            return ['error' => $e->getMessage()];
+            return [
+                'error' => 'Token exchange failed due to an unexpected error',
+                'technical_error' => $e->getMessage(),
+            ];
         }
     }
 
@@ -778,5 +905,27 @@ class HighLevelService
         return HLAccount::where('location_id', $locationId)
             ->where('is_active', true)
             ->first();
+    }
+
+    /**
+     * Validate if the provided ID is a valid HighLevel location ID format.
+     * Location IDs should not be confused with Company IDs.
+     *
+     * @param string $locationId The ID to validate
+     * @return bool True if format appears valid
+     */
+    protected function isValidLocationId(string $locationId): bool
+    {
+        // Basic validation: non-empty, reasonable length, alphanumeric
+        if (empty($locationId) || strlen($locationId) < 10 || strlen($locationId) > 50) {
+            return false;
+        }
+
+        // HighLevel IDs are typically alphanumeric
+        if (!preg_match('/^[a-zA-Z0-9_-]+$/', $locationId)) {
+            return false;
+        }
+
+        return true;
     }
 }

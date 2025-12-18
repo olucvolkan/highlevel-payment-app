@@ -155,7 +155,7 @@
         @endif
         
         <p class="message" style="font-size: 14px; margin-top: 30px;">
-            You can now close this window and return to HighLevel to start accepting payments.
+            You can now close this window and return to your CRM to start accepting payments.
         </p>
         
         <button class="close-button" onclick="closeWindow()">Close Window</button>
@@ -176,8 +176,10 @@
                     }
                 }, '*');
             } else {
-                // Fallback - redirect to HighLevel
-                window.location.href = 'https://app.gohighlevel.com';
+                // Fallback - notify parent to close
+                if (window.parent && window.parent !== window) {
+                    window.parent.postMessage({ type: 'close_integration' }, '*');
+                }
             }
         }
 

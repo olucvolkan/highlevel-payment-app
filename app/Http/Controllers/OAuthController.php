@@ -25,6 +25,15 @@ class OAuthController extends Controller
     {
         $code = $request->get('code');
 
+        Log::info('[DEBUG] OAuth callback started', [
+            'has_code' => !empty($code),
+            'code_length' => strlen($code ?? ''),
+            'request_params' => array_keys($request->all()),
+            'location_id_in_query' => $request->get('location_id'),
+            'state' => $request->get('state'),
+            'all_query_params' => $request->all(),
+        ]);
+
         if (!$code) {
             Log::error('OAuth callback missing authorization code', $request->all());
 
@@ -70,33 +79,63 @@ class OAuthController extends Controller
             // IMPORTANT: Even though we request user_type='Location', HighLevel may still return Company token
             // We need to exchange Company token for Location token if needed
             if ($account->needsLocationTokenExchange()) {
-                Log::info('Exchanging Company token for Location token', [
+                Log::info('[DEBUG] Account needs location token exchange', [
                     'account_id' => $account->id,
                     'location_id' => $locationId,
                     'token_type' => $account->token_type,
+                    'has_access_token' => !empty($account->access_token),
+                    'has_location_token' => !empty($account->location_access_token),
                 ]);
 
                 $exchangeResult = $this->highLevelService->exchangeCompanyTokenForLocation($account, $locationId);
 
                 if (isset($exchangeResult['error'])) {
-                    Log::error('Token exchange failed during OAuth', [
+                    // Build detailed error message for logging
+                    $errorDetails = [
                         'account_id' => $account->id,
                         'location_id' => $locationId,
                         'error' => $exchangeResult['error'],
-                    ]);
+                        'technical_error' => $exchangeResult['technical_error'] ?? null,
+                        'status_code' => $exchangeResult['status'] ?? null,
+                        'parsed_response' => $exchangeResult['parsed_response'] ?? null,
+                    ];
+
+                    Log::error('[DEBUG] Token exchange failed during OAuth', $errorDetails);
 
                     // This is CRITICAL - without Location token, provider creation will fail
+                    // Use the user-friendly error message from the service
+                    $userError = $exchangeResult['error'];
+
+                    // Add context if this seems like a configuration issue
+                    if (isset($exchangeResult['status']) && $exchangeResult['status'] === 400) {
+                        $userError .= ' This may indicate a configuration issue with your integration. Please contact support if the problem persists.';
+                    }
+
                     return redirect()->route('oauth.error')
-                        ->with('error', 'Failed to obtain Location token: ' . $exchangeResult['error']);
+                        ->with('error', $userError)
+                        ->with('support_reference', 'TOKEN_EXCHANGE_FAILED');
                 }
 
-                Log::info('Token exchange successful during OAuth', [
+                Log::info('[DEBUG] Token exchange successful during OAuth', [
                     'account_id' => $account->id,
                     'location_id' => $locationId,
                 ]);
 
                 // Refresh account to get updated token
                 $account->refresh();
+
+                // Verify that location token was actually set
+                if (empty($account->location_access_token)) {
+                    Log::error('[DEBUG] Token exchange succeeded but location_access_token is still empty', [
+                        'account_id' => $account->id,
+                        'location_id' => $locationId,
+                        'exchange_result_keys' => array_keys($exchangeResult),
+                    ]);
+
+                    return redirect()->route('oauth.error')
+                        ->with('error', 'Location token was not properly saved. Please try reinstalling the integration.')
+                        ->with('support_reference', 'TOKEN_NOT_SAVED');
+                }
             }
 
             Log::info('OAuth callback completed with Location token', [
@@ -151,7 +190,7 @@ class OAuthController extends Controller
             } else {
                 // PayTR not configured, redirect to setup page
                 return redirect()->route('paytr.setup', ['location_id' => $locationId])
-                    ->with('success', 'HighLevel integration completed! Now configure your PayTR credentials to start accepting payments.');
+                    ->with('success', 'Integration completed! Now configure your PayTR credentials to start accepting payments.');
             }
 
         } catch (\Exception $e) {
@@ -219,43 +258,67 @@ class OAuthController extends Controller
     }
 
     /**
-     * Extract location_id from request or token response
+     * Extract location_id from request or token response.
+     *
+     * CRITICAL: This method extracts LOCATION IDs only, NOT company IDs.
+     * A company can have multiple locations, so companyId ≠ locationId.
+     * Using companyId as locationId causes "Location not found" errors.
      */
     protected function extractLocationId(Request $request, array $tokenResponse): ?string
     {
-        // Try multiple sources for location_id
+        $extractedId = null;
+        $source = null;
 
-        // 1. From query parameter (most common in OAuth callback)
+        // 1. From query parameter (most common in OAuth callback from marketplace)
         if ($request->has('location_id')) {
-            return $request->get('location_id');
+            $extractedId = $request->get('location_id');
+            $source = 'query_parameter';
         }
 
-        // 2. From token response - try different possible keys
-        $possibleKeys = ['locationId', 'location_id', 'companyId', 'company_id'];
-        foreach ($possibleKeys as $key) {
-            if (isset($tokenResponse[$key])) {
-                return $tokenResponse[$key];
-            }
-        }
-
-        // 3. From session (set during authorize)
-        if ($request->session()->has('location_id')) {
-            return $request->session()->get('location_id');
-        }
-
-        // 4. Try to extract from state parameter if it contains location info
-        if ($request->has('state')) {
-            $state = $request->get('state');
-            // Check if state contains location_id (some OAuth flows encode it)
-            if (str_contains($state, 'location_')) {
-                preg_match('/location_([a-zA-Z0-9]+)/', $state, $matches);
-                if (!empty($matches[1])) {
-                    return $matches[1];
+        // 2. From token response - ONLY check location-specific keys
+        // CRITICAL FIX: Removed 'companyId' and 'company_id' from this list
+        // Company IDs are different from Location IDs and cannot be used interchangeably
+        if (!$extractedId) {
+            $possibleKeys = ['locationId', 'location_id'];
+            foreach ($possibleKeys as $key) {
+                if (isset($tokenResponse[$key]) && !empty($tokenResponse[$key])) {
+                    $extractedId = $tokenResponse[$key];
+                    $source = "token_response[$key]";
+                    break;
                 }
             }
         }
 
-        return null;
+        // 3. From session (set during authorize)
+        if (!$extractedId && $request->session()->has('location_id')) {
+            $extractedId = $request->session()->get('location_id');
+            $source = 'session';
+        }
+
+        // 4. Try to extract from state parameter if it contains location info
+        if (!$extractedId && $request->has('state')) {
+            $state = $request->get('state');
+            // Check if state contains location_id (some OAuth flows encode it)
+            if (str_contains($state, 'location_')) {
+                preg_match('/location_([a-zA-Z0-9_-]+)/', $state, $matches);
+                if (!empty($matches[1])) {
+                    $extractedId = $matches[1];
+                    $source = 'state_parameter';
+                }
+            }
+        }
+
+        Log::info('[DEBUG] Location ID extraction completed', [
+            'extracted_id' => $extractedId ?? 'NULL',
+            'source' => $source ?? 'none',
+            'available_query_params' => array_keys($request->all()),
+            'available_token_keys' => array_keys($tokenResponse),
+            'token_response_locationId' => $tokenResponse['locationId'] ?? 'NOT_SET',
+            'token_response_companyId' => $tokenResponse['companyId'] ?? 'NOT_SET',
+            'query_location_id' => $request->get('location_id') ?? 'NOT_SET',
+        ]);
+
+        return $extractedId;
     }
 
     /**
