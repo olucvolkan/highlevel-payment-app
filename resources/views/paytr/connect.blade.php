@@ -13,7 +13,7 @@
             <!-- Header -->
             <div>
                 <div class="flex justify-center">
-                    <img src="{{ config('app.url') }}/images/paytr-logo.png" alt="PayTR Logo" class="h-16 w-auto">
+                    <img src="{{ config('app.url') }}/public/images/paytr-logo.png" alt="PayTR Logo" class="h-16 w-auto">
                 </div>
                 <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
                     Connect PayTR

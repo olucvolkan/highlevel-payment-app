@@ -15,7 +15,7 @@
             justify-content: center;
             align-items: center;
         }
-        
+
         .container {
             background: white;
             padding: 40px;
@@ -25,7 +25,7 @@
             max-width: 600px;
             width: 100%;
         }
-        
+
         .success-icon {
             width: 80px;
             height: 80px;
@@ -38,20 +38,20 @@
             color: white;
             font-size: 40px;
         }
-        
+
         h1 {
             color: #2c3e50;
             margin-bottom: 10px;
             font-size: 32px;
         }
-        
+
         .message {
             color: #7f8c8d;
             font-size: 18px;
             margin-bottom: 30px;
             line-height: 1.5;
         }
-        
+
         .features {
             background: #f8f9fa;
             padding: 20px;
@@ -59,35 +59,35 @@
             margin: 20px 0;
             text-align: left;
         }
-        
+
         .features h3 {
             color: #2c3e50;
             margin-top: 0;
             margin-bottom: 15px;
         }
-        
+
         .feature-list {
             list-style: none;
             padding: 0;
         }
-        
+
         .feature-list li {
             padding: 8px 0;
             border-bottom: 1px solid #e9ecef;
             color: #495057;
         }
-        
+
         .feature-list li:last-child {
             border-bottom: none;
         }
-        
+
         .feature-list li:before {
             content: "✓";
             color: #27ae60;
             font-weight: bold;
             margin-right: 10px;
         }
-        
+
         .close-button {
             background: #3498db;
             color: white;
@@ -99,15 +99,15 @@
             transition: background 0.3s;
             margin-top: 20px;
         }
-        
+
         .close-button:hover {
             background: #2980b9;
         }
-        
+
         .paytr-logo {
             margin: 20px 0;
         }
-        
+
         .paytr-logo img {
             max-height: 40px;
         }
@@ -120,11 +120,11 @@
         <p class="message">
             {{ $message }}
         </p>
-        
+
         <div class="paytr-logo">
-            <img src="{{ config('app.url') }}/images/paytr-logo.png" alt="PayTR" onerror="this.style.display='none'">
+            <img src="{{ config('app.url') }}/public/images/paytr-logo.png" alt="PayTR" onerror="this.style.display='none'">
         </div>
-        
+
         @if(request()->has('paytr_configured'))
         <div class="features">
             <h3>Your PayTR integration is now active with these features:</h3>
@@ -144,7 +144,7 @@
             <p style="color: #7f8c8d; margin-bottom: 20px;">
                 To start accepting payments, you need to configure your PayTR credentials.
             </p>
-            <a href="{{ route('paytr.setup', ['location_id' => request()->get('location_id', session('location_id'))]) }}" 
+            <a href="{{ route('paytr.setup', ['location_id' => request()->get('location_id', session('location_id'))]) }}"
                style="background: #e74c3c; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; margin-bottom: 20px;">
                 Configure PayTR Now
             </a>
@@ -153,11 +153,11 @@
             </div>
         </div>
         @endif
-        
+
         <p class="message" style="font-size: 14px; margin-top: 30px;">
             You can now close this window and return to your CRM to start accepting payments.
         </p>
-        
+
         <button class="close-button" onclick="closeWindow()">Close Window</button>
     </div>
 
@@ -188,7 +188,7 @@
             setTimeout(function() {
                 document.querySelector('.close-button').style.background = '#95a5a6';
                 document.querySelector('.close-button').innerHTML = 'Closing in 5 seconds...';
-                
+
                 setTimeout(closeWindow, 5000);
             }, 5000);
         }
